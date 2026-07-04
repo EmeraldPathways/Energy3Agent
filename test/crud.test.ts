@@ -45,7 +45,7 @@ function fetchJson(
   });
 }
 
-async function waitForServer(retries = 20): Promise<void> {
+async function waitForServer(retries = 40): Promise<void> {
   for (let i = 0; i < retries; i++) {
     try {
       const res = await fetchJson(`${BASE}/health`);
@@ -53,38 +53,84 @@ async function waitForServer(retries = 20): Promise<void> {
     } catch {
       // server not ready yet
     }
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 500));
   }
-  throw new Error('Server did not become ready');
+  throw new Error('Server did not become ready after retries');
+}
+
+function killStalePort() {
+  try {
+    // Use PowerShell to kill process on the test port — more reliable on Windows
+    const { execSync } = require('node:child_process');
+    execSync(
+      `powershell -Command "Get-NetTCPConnection -LocalPort ${SERVER_PORT} -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`,
+      { stdio: 'ignore', timeout: 5000 },
+    );
+  } catch {
+    // no stale process, ok
+  }
 }
 
 before(async () => {
-  return new Promise<void>((resolve, reject) => {
-    serverProcess = spawn('node', ['--import', 'tsx', 'server/src/index.ts'], {
-      cwd: path.resolve(__dirname, '..'),
-      env: { ...process.env, PORT: String(SERVER_PORT) },
-      stdio: 'pipe',
-      shell: true,
-    });
+  killStalePort();
 
-    const timeout = setTimeout(() => {
-      reject(new Error('Server process did not start within 10s'));
-    }, 10000);
+  await new Promise<void>((resolve, reject) => {
+    serverProcess = spawn(
+      'node',
+      ['--import', 'tsx', 'server/src/index.ts'],
+      {
+        cwd: path.resolve(__dirname, '..'),
+        env: { ...process.env, PORT: String(SERVER_PORT) },
+        stdio: 'pipe',
+        shell: true,
+      },
+    );
 
-    serverProcess.stdout?.on('data', (data: Buffer) => {
-      const msg = data.toString();
-      if (msg.includes('running')) {
-        clearTimeout(timeout);
-        // wait for server to be ready
-        waitForServer().then(resolve).catch(reject);
+    let settled = false;
+
+    const failTimeout = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        reject(new Error('Server spawn timed out'));
+      }
+    }, 30000);
+
+    serverProcess.on('error', (err) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(failTimeout);
+        reject(err);
       }
     });
 
-    serverProcess.stderr?.on('data', (data: Buffer) => {
-      // suppress tsx warnings
+    serverProcess.on('exit', (code) => {
+      if (!settled) {
+        settled = true;
+        clearTimeout(failTimeout);
+        reject(new Error(`Server exited early with code ${code}`));
+      }
     });
 
-    serverProcess.on('error', reject);
+    // Drain stdout/stderr to prevent backpressure
+    serverProcess.stdout?.on('data', () => {});
+    serverProcess.stderr?.on('data', () => {});
+
+    // Poll health endpoint — no reliance on stdout text
+    waitForServer(60)
+      .then(() => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(failTimeout);
+          resolve();
+        }
+      })
+      .catch((err) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(failTimeout);
+          reject(err);
+        }
+      });
   });
 });
 
@@ -111,7 +157,6 @@ describe('CRUD API', () => {
   let initialCount: number;
 
   it('POST /api/projects creates a project', async () => {
-    // record count before creation
     const before = await fetchJson(`${BASE}/projects`);
     initialCount = (before.body as { data: unknown[] }).data.length;
 
