@@ -1,0 +1,26 @@
+{
+  "name": "ai-marketing-campaign-builder",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first AI marketing campaign builder",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "dev": "concurrently -n server,client -c blue,green \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm run build:shared && npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "build": "npm run build -w shared && npm run build -w server && npm run build -w client",
+    "build:shared": "npm run build -w shared",
+    "start": "npm run build:shared && npm run start -w server",
+    "test": "echo no tests yet",
+    "validate:crud": "npm run build:shared && node --import tsx --test test/crud.test.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
