@@ -199,6 +199,7 @@ export interface FinalAssembly {
   ctaSuggestions: string[];
   visualConcept: string;
   imagePrompts: { format: string; prompt: string }[];
+  conceptImages: { id: string; label: string; prompt: string; imagePath: string }[];
   audienceInsights: string[];
   competitorAnalysis: string[];
   risks: string[];
@@ -216,6 +217,6 @@ export function approveFinal(projectId: string): Promise<{ data: { finalApproved
   return request(`/projects/${projectId}/approve/final`, { method: 'POST' });
 }
 
-export function getExportUrl(projectId: string, format: 'json' | 'markdown' | 'html'): string {
+export function getExportUrl(projectId: string, format: 'docx' | 'pdf'): string {
   return `${BASE}/projects/${projectId}/export/${format}`;
 }

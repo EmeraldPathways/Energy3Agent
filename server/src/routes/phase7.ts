@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { FinalAssemblySchema } from '@ai-campaign/shared';
 import { getDb } from '../db.js';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+
+type HeadingLevelType = (typeof HeadingLevel)[keyof typeof HeadingLevel];
 
 const router = Router();
 
@@ -56,6 +59,7 @@ router.post('/:id/agents/run-campaign-manager', (req: Request, res: Response) =>
   const mr = sp.marketResearch || {};
   const feedbackItems = Array.isArray(intake.feedbackItems) ? intake.feedbackItems : [];
   const revisionDecisions = Array.isArray(intake.revisionDecisions) ? intake.revisionDecisions : [];
+  const conceptImages = Array.isArray(intake.conceptImages) ? intake.conceptImages : [];
 
   const campaignTitle = brief.campaign_title || creator.campaign_title || '';
   const assembly = {
@@ -75,6 +79,12 @@ router.post('/:id/agents/run-campaign-manager', (req: Request, res: Response) =>
     ctaSuggestions: (tc.cta_suggestions || []) as string[],
     visualConcept: ic.visual_concept || '',
     imagePrompts: (ic.image_prompts || []).map((p: { format: string; prompt: string }) => ({ format: p.format, prompt: p.prompt })),
+    conceptImages: conceptImages.map((ci: { id: string; label: string; prompt: string; imagePath: string }) => ({
+      id: ci.id,
+      label: ci.label,
+      prompt: ci.prompt,
+      imagePath: ci.imagePath,
+    })),
     audienceInsights: (mr.target_audience_insights || []) as string[],
     competitorAnalysis: (mr.competitor_analysis || []) as string[],
     risks: (mr.risk_factors || []) as string[],
@@ -83,7 +93,7 @@ router.post('/:id/agents/run-campaign-manager', (req: Request, res: Response) =>
     revisionCount: revisionDecisions.length,
     summary: '',
   };
-  assembly.summary = `Campaign "${campaignTitle}" for ${assembly.client}. ${assembly.headlines.length} headlines, ${assembly.adCopy.length} ad variants, ${assembly.audienceInsights.length} audience insights.`;
+  assembly.summary = `Campaign "${campaignTitle}" for ${assembly.client}. ${assembly.headlines.length} headlines, ${assembly.adCopy.length} ad variants, ${assembly.audienceInsights.length} audience insights, ${assembly.conceptImages.length} concept images.`;
 
   FinalAssemblySchema.parse(assembly);
 
@@ -135,119 +145,26 @@ router.post('/:id/approve/final', (req: Request, res: Response) => {
   res.status(200).json({ data: { finalApproved: true, finalApprovedAt: intake.finalApprovedAt } });
 });
 
-// ── Export helpers ──
-function generateMarkdown(assembly: Record<string, unknown>): string {
-  const a = assembly;
-  const arr = (v: unknown): string[] => (Array.isArray(v) ? v as string[] : []);
-  const imgPrompts = (Array.isArray(a.imagePrompts) ? a.imagePrompts as { format: string; prompt: string }[] : []);
+// ── Shared helpers ──
 
-  return [
-    `# ${a.campaignTitle || 'Campaign Pack'}`,
-    '',
-    `**Client:** ${a.client || ''}`,
-    `**Generated:** ${a.generatedAt || ''}`,
-    '',
-    '## Campaign Objective',
-    '',
-    `${a.campaignObjective || ''}`,
-    '',
-    '## Target Audience',
-    '',
-    `${a.targetAudience || ''}`,
-    '',
-    '## Key Messages',
-    '',
-    ...arr(a.keyMessages).map(m => `- ${m}`),
-    '',
-    '## Content Pillars',
-    '',
-    ...arr(a.contentPillars).map(p => `- ${p}`),
-    '',
-    '## Recommended Channels',
-    '',
-    ...arr(a.recommendedChannels).map(c => `- ${c}`),
-    '',
-    '## Production Strategy',
-    '',
-    `${a.productionStrategy || ''}`,
-    '',
-    '## Headlines',
-    '',
-    ...arr(a.headlines).map(h => `- ${h}`),
-    '',
-    '## Ad Copy',
-    '',
-    ...arr(a.adCopy).map(ac => `- ${ac}`),
-    '',
-    '## CTAs',
-    '',
-    ...arr(a.ctaSuggestions).map(c => `- ${c}`),
-    '',
-    '## Visual Concept',
-    '',
-    `${a.visualConcept || ''}`,
-    '',
-    '## Image Prompts',
-    '',
-    ...imgPrompts.map(p => `- **${p.format}:** ${p.prompt}`),
-    '',
-    '## Audience Insights',
-    '',
-    ...arr(a.audienceInsights).map(i => `- ${i}`),
-    '',
-    '## Competitor Analysis',
-    '',
-    ...arr(a.competitorAnalysis).map(c => `- ${c}`),
-    '',
-    '## Risks',
-    '',
-    ...arr(a.risks).map(r => `- ${r}`),
-    '',
-    '## Opportunities',
-    '',
-    ...arr(a.opportunities).map(o => `- ${o}`),
-    '',
-    '## Summary',
-    '',
-    `${a.summary || ''}`,
-    '',
-  ].join('\n');
+function storeArtifact(intake: Record<string, unknown>, format: string, content: string, projectId: string | string[]): void {
+  const db = getDb();
+  const artifact = { format, content, generatedAt: new Date().toISOString() };
+  const artifacts: Record<string, unknown>[] = Array.isArray(intake.exportArtifacts) ? intake.exportArtifacts : [];
+  artifacts.push(artifact);
+  intake.exportArtifacts = artifacts;
+  db.prepare('UPDATE projects SET intake = ?, updated_at = ? WHERE id = ?').run(
+    JSON.stringify(intake), new Date().toISOString(), projectId,
+  );
 }
 
-function generateHtml(assembly: Record<string, unknown>): string {
-  const md = generateMarkdown(assembly);
-  // Simple markdown-to-HTML conversion
-  let html = md
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
-    .replace(/\n{2,}/g, '</p><p>')
-    .replace(/^(?!<[hlu/]).+$/gm, (line: string) => line.trim() ? line : '');
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${assembly.campaignTitle || 'Campaign Pack'}</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #1a1a1a; }
-    h1 { border-bottom: 2px solid #333; padding-bottom: 0.5rem; }
-    h2 { margin-top: 2rem; color: #2c5282; }
-    ul { padding-left: 1.5rem; }
-  </style>
-</head>
-<body>
-${html}
-</body>
-</html>`;
+function assemblyArr(assembly: Record<string, unknown>, key: string): string[] {
+  const v = assembly[key];
+  return Array.isArray(v) ? v as string[] : [];
 }
 
-// ── GET /api/projects/:id/export/json ──
-router.get('/:id/export/json', (req: Request, res: Response) => {
+// ── GET /api/projects/:id/export/docx ──
+router.get('/:id/export/docx', async (req: Request, res: Response) => {
   const db = getDb();
   const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id) as ProjectRow | undefined;
   if (!row) {
@@ -266,27 +183,107 @@ router.get('/:id/export/json', (req: Request, res: Response) => {
     return;
   }
 
-  const artifact = {
-    format: 'json' as const,
-    content: JSON.stringify(intake.finalAssembly, null, 2),
-    generatedAt: new Date().toISOString(),
-  };
+  try {
+    const a = intake.finalAssembly as Record<string, unknown>;
 
-  // Store in project
-  const artifacts: Record<string, unknown>[] = Array.isArray(intake.exportArtifacts) ? intake.exportArtifacts : [];
-  artifacts.push(artifact);
-  intake.exportArtifacts = artifacts;
-  db.prepare('UPDATE projects SET intake = ?, updated_at = ? WHERE id = ?').run(
-    JSON.stringify(intake), new Date().toISOString(), req.params.id,
-  );
+    function heading(text: string, level: HeadingLevelType): Paragraph {
+      return new Paragraph({
+        heading: level,
+        spacing: { before: 400, after: 200 },
+        children: [new TextRun({ text, bold: true, size: level === HeadingLevel.HEADING_1 ? 44 : 32 })],
+      });
+    }
 
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Content-Disposition', `attachment; filename="campaign-${req.params.id}.json"`);
-  res.send(artifact.content);
+    function body(text: string): Paragraph {
+      return new Paragraph({
+        spacing: { after: 120 },
+        children: [new TextRun({ text, size: 22 })],
+      });
+    }
+
+    function bullet(text: string): Paragraph {
+      return new Paragraph({
+        spacing: { after: 60 },
+        bullet: { level: 0 },
+        children: [new TextRun({ text, size: 22 })],
+      });
+    }
+
+    const children: Paragraph[] = [
+      heading(String(a.campaignTitle || 'Campaign Pack'), HeadingLevel.HEADING_1),
+      body(`Client: ${a.client || ''}`),
+      body(`Generated: ${String(a.generatedAt || '').replace('T', ' ').substring(0, 19)}`),
+      heading('Campaign Objective', HeadingLevel.HEADING_2),
+      body(String(a.campaignObjective || '')),
+      heading('Target Audience', HeadingLevel.HEADING_2),
+      body(String(a.targetAudience || '')),
+      heading('Key Messages', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'keyMessages').map(bullet),
+      heading('Content Pillars', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'contentPillars').map(bullet),
+      heading('Recommended Channels', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'recommendedChannels').map(bullet),
+      heading('Production Strategy', HeadingLevel.HEADING_2),
+      body(String(a.productionStrategy || '')),
+      heading('Headlines', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'headlines').map(bullet),
+      heading('Ad Copy', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'adCopy').map(bullet),
+      heading('CTAs', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'ctaSuggestions').map(bullet),
+      heading('Visual Concept', HeadingLevel.HEADING_2),
+      body(String(a.visualConcept || '')),
+    ];
+
+    // Image Prompts
+    const imgPrompts = Array.isArray(a.imagePrompts) ? a.imagePrompts as { format: string; prompt: string }[] : [];
+    children.push(heading('Image Prompts', HeadingLevel.HEADING_2));
+    for (const p of imgPrompts) {
+      children.push(bullet(`${p.format}: ${p.prompt}`));
+    }
+
+    // Concept Images
+    const conceptImages = Array.isArray(a.conceptImages) ? a.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[] : [];
+    if (conceptImages.length > 0) {
+      children.push(heading('Generated Concept Images', HeadingLevel.HEADING_2));
+      for (const ci of conceptImages) {
+        children.push(bullet(`${ci.label} (${ci.imagePath}) — ${ci.prompt}`));
+      }
+    }
+
+    children.push(
+      heading('Audience Insights', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'audienceInsights').map(bullet),
+      heading('Competitor Analysis', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'competitorAnalysis').map(bullet),
+      heading('Risks', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'risks').map(bullet),
+      heading('Opportunities', HeadingLevel.HEADING_2),
+      ...assemblyArr(a, 'opportunities').map(bullet),
+      heading('Summary', HeadingLevel.HEADING_2),
+      body(String(a.summary || '')),
+    );
+
+    const doc = new Document({
+      sections: [{ children }],
+    });
+
+    const buffer = await Packer.toBuffer(doc);
+
+    storeArtifact(intake, 'docx', '[DOCX binary stored]', req.params.id);
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="campaign-${req.params.id}.docx"`);
+    res.send(buffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'DOCX generation failed';
+    console.error('[phase7 docx]', message);
+    res.status(500).json({ error: message });
+  }
 });
 
-// ── GET /api/projects/:id/export/markdown ──
-router.get('/:id/export/markdown', (req: Request, res: Response) => {
+// ── GET /api/projects/:id/export/pdf ──
+router.get('/:id/export/pdf', async (req: Request, res: Response) => {
   const db = getDb();
   const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id) as ProjectRow | undefined;
   if (!row) {
@@ -305,64 +302,131 @@ router.get('/:id/export/markdown', (req: Request, res: Response) => {
     return;
   }
 
-  const content = generateMarkdown(intake.finalAssembly);
+  try {
+    const assembly = intake.finalAssembly as Record<string, unknown>;
+    const PDFDocument = (await import('pdfkit')).default;
 
-  const artifact = {
-    format: 'markdown' as const,
-    content,
-    generatedAt: new Date().toISOString(),
-  };
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 50, left: 60, right: 60 },
+      info: {
+        Title: String(assembly.campaignTitle || 'Campaign Pack'),
+        Author: String(assembly.client || ''),
+        CreationDate: new Date(),
+      },
+    });
 
-  const artifacts: Record<string, unknown>[] = Array.isArray(intake.exportArtifacts) ? intake.exportArtifacts : [];
-  artifacts.push(artifact);
-  intake.exportArtifacts = artifacts;
-  db.prepare('UPDATE projects SET intake = ?, updated_at = ? WHERE id = ?').run(
-    JSON.stringify(intake), new Date().toISOString(), req.params.id,
-  );
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
 
-  res.setHeader('Content-Type', 'text/markdown');
-  res.setHeader('Content-Disposition', `attachment; filename="campaign-${req.params.id}.md"`);
-  res.send(content);
-});
+    const pdfPromise = new Promise<Buffer>((resolve) => {
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+    });
 
-// ── GET /api/projects/:id/export/html ──
-router.get('/:id/export/html', (req: Request, res: Response) => {
-  const db = getDb();
-  const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(req.params.id) as ProjectRow | undefined;
-  if (!row) {
-    res.status(404).json({ error: 'Project not found' });
-    return;
+    const arr = (v: unknown): string[] => (Array.isArray(v) ? v as string[] : []);
+    const imgPrompts = (Array.isArray(assembly.imagePrompts) ? assembly.imagePrompts as { format: string; prompt: string }[] : []);
+    const conceptImages = (Array.isArray(assembly.conceptImages) ? assembly.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[] : []);
+
+    doc.fontSize(24).font('Helvetica-Bold').text(String(assembly.campaignTitle || 'Campaign Pack'), { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(14).font('Helvetica').text(`Client: ${assembly.client || ''}`, { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(10).font('Helvetica').text(`Generated: ${String(assembly.generatedAt || '').replace('T', ' ').substring(0, 19)}`, { align: 'center' });
+    doc.moveDown(1.5);
+
+    function addHeading(text: string) {
+      doc.moveDown(1);
+      doc.fontSize(16).font('Helvetica-Bold').text(text);
+      doc.moveDown(0.3);
+    }
+
+    function addBody(text: string) {
+      doc.fontSize(11).font('Helvetica').text(text);
+    }
+
+    function addList(items: string[]) {
+      doc.fontSize(11).font('Helvetica');
+      for (const item of items) {
+        doc.text(`  \u2022 ${item}`);
+      }
+    }
+
+    addHeading('Campaign Objective');
+    addBody(String(assembly.campaignObjective || ''));
+
+    addHeading('Target Audience');
+    addBody(String(assembly.targetAudience || ''));
+
+    addHeading('Key Messages');
+    addList(arr(assembly.keyMessages));
+
+    addHeading('Content Pillars');
+    addList(arr(assembly.contentPillars));
+
+    addHeading('Recommended Channels');
+    addList(arr(assembly.recommendedChannels));
+
+    addHeading('Production Strategy');
+    addBody(String(assembly.productionStrategy || ''));
+
+    addHeading('Headlines');
+    addList(arr(assembly.headlines));
+
+    addHeading('Ad Copy');
+    addList(arr(assembly.adCopy));
+
+    addHeading('CTAs');
+    addList(arr(assembly.ctaSuggestions));
+
+    addHeading('Visual Concept');
+    addBody(String(assembly.visualConcept || ''));
+
+    addHeading('Image Prompts');
+    for (const p of imgPrompts) {
+      doc.font('Helvetica-Bold').text(`  ${p.format}:`);
+      doc.font('Helvetica').text(`    ${p.prompt}`);
+    }
+
+    if (conceptImages.length > 0) {
+      addHeading('Generated Concept Images');
+      for (const ci of conceptImages) {
+        doc.font('Helvetica-Bold').text(`  ${ci.label}`);
+        doc.font('Helvetica').text(`    Path: ${ci.imagePath}`);
+        doc.font('Helvetica').text(`    Prompt: ${ci.prompt}`);
+        doc.moveDown(0.2);
+      }
+    }
+
+    addHeading('Audience Insights');
+    addList(arr(assembly.audienceInsights));
+
+    addHeading('Competitor Analysis');
+    addList(arr(assembly.competitorAnalysis));
+
+    addHeading('Risks');
+    addList(arr(assembly.risks));
+
+    addHeading('Opportunities');
+    addList(arr(assembly.opportunities));
+
+    doc.moveDown(1);
+    addHeading('Summary');
+    addBody(String(assembly.summary || ''));
+
+    doc.end();
+
+    const pdfBuffer = await pdfPromise;
+
+    storeArtifact(intake, 'pdf', '[PDF binary stored]', req.params.id);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="campaign-${req.params.id}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'PDF generation failed';
+    console.error('[phase7 pdf]', message);
+    res.status(500).json({ error: message });
   }
-
-  const intake = parseIntake(row.intake);
-
-  if (!intake.finalApproved) {
-    res.status(400).json({ error: 'Final approval required before export' });
-    return;
-  }
-  if (!intake.finalAssembly) {
-    res.status(400).json({ error: 'Final assembly must exist before export' });
-    return;
-  }
-
-  const content = generateHtml(intake.finalAssembly);
-
-  const artifact = {
-    format: 'html' as const,
-    content,
-    generatedAt: new Date().toISOString(),
-  };
-
-  const artifacts: Record<string, unknown>[] = Array.isArray(intake.exportArtifacts) ? intake.exportArtifacts : [];
-  artifacts.push(artifact);
-  intake.exportArtifacts = artifacts;
-  db.prepare('UPDATE projects SET intake = ?, updated_at = ? WHERE id = ?').run(
-    JSON.stringify(intake), new Date().toISOString(), req.params.id,
-  );
-
-  res.setHeader('Content-Type', 'text/html');
-  res.setHeader('Content-Disposition', `attachment; filename="campaign-${req.params.id}.html"`);
-  res.send(content);
 });
 
 export default router;

@@ -165,6 +165,28 @@ function ArraySection({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+function filterMeaningfulMissing(items: string[]): string[] {
+  if (!items || items.length === 0) return [];
+  // Generic noise patterns that Gemini often emits for "nothing missing"
+  const noisePatterns = [
+    /^none\.?\s*$/i,
+    /^n\/a\.?\s*$/i,
+    /^not applicable\.?\s*$/i,
+    /^no (missing|additional) information/i,
+    /^nothing (missing|to report)/i,
+    /^all (necessary|required|needed) information (is )?(present|available|provided)/i,
+    /^client (has|provided) (all|everything)/i,
+    /^no (gaps|issues) (identified|found)/i,
+  ];
+  return items.filter(item => {
+    if (item.length < 20) return false;
+    for (const pattern of noisePatterns) {
+      if (pattern.test(item.trim())) return false;
+    }
+    return true;
+  });
+}
+
 function IntakeOutputTabs({
   meetingNotesIntake,
   brandGuideIntake,
@@ -644,7 +666,7 @@ function RenderBriefOutput({ brief }: { brief: ManagerBrief }) {
       <ArraySection title="Asset Requirements" items={brief.asset_requirements} />
       <ArraySection title="Brand Rules to Follow" items={brief.brand_rules_to_follow} />
       <ArraySection title="Compliance Flags" items={brief.compliance_flags} />
-      <ArraySection title="Missing Information" items={brief.missing_information} />
+      <ArraySection title="Missing Information" items={filterMeaningfulMissing(brief.missing_information)} />
       <ArraySection title="Approval Checklist" items={brief.approval_checklist} />
 
       <h4>Campaign Brief</h4>
@@ -862,7 +884,7 @@ function Phase7Final({
         </div>
       )}
 
-      {hasAssembly && (
+          {hasAssembly && (
         <div className="output-block">
           <h3>Final Assembly Summary</h3>
           <dl className="output-grid">
@@ -871,6 +893,7 @@ function Phase7Final({
             <dt>Headlines</dt><dd>{(intake.finalAssembly?.headlines as string[])?.length || 0}</dd>
             <dt>Ad Copy Variants</dt><dd>{(intake.finalAssembly?.adCopy as string[])?.length || 0}</dd>
             <dt>Image Prompts</dt><dd>{(intake.finalAssembly?.imagePrompts as unknown[])?.length || 0}</dd>
+            <dt>Concept Images</dt><dd>{(intake.finalAssembly?.conceptImages as unknown[])?.length || 0}</dd>
             <dt>Feedback Items</dt><dd>{intake.finalAssembly?.feedbackCount as number || 0}</dd>
             <dt>Revisions</dt><dd>{intake.finalAssembly?.revisionCount as number || 0}</dd>
           </dl>
@@ -891,9 +914,8 @@ function Phase7Final({
             <strong>Final assembly approved.</strong> Export ready.
           </div>
           <div className="export-actions">
-            <a href={getExportUrl(projectId, 'json')} className="btn btn-primary" target="_blank" rel="noopener noreferrer">Export JSON</a>
-            <a href={getExportUrl(projectId, 'markdown')} className="btn btn-primary" target="_blank" rel="noopener noreferrer">Export Markdown</a>
-            <a href={getExportUrl(projectId, 'html')} className="btn btn-primary" target="_blank" rel="noopener noreferrer">Export HTML</a>
+            <a href={getExportUrl(projectId, 'docx')} className="btn btn-primary" target="_blank" rel="noopener noreferrer">Export DOCX</a>
+            <a href={getExportUrl(projectId, 'pdf')} className="btn btn-primary" target="_blank" rel="noopener noreferrer">Export PDF</a>
           </div>
         </div>
       )}

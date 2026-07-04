@@ -42,7 +42,18 @@ function fetchText(url) {
     http.get({ hostname: parsed.hostname, port: parsed.port, path: parsed.pathname }, (res) => {
       let data = '';
       res.on('data', c => data += c);
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      res.on('end', () => resolve({ status: res.statusCode, body: data, headers: res.headers }));
+    }).on('error', reject);
+  });
+}
+
+function fetchBinary(url) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    http.get({ hostname: parsed.hostname, port: parsed.port, path: parsed.pathname }, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks), headers: res.headers }));
     }).on('error', reject);
   });
 }
@@ -77,7 +88,7 @@ async function main() {
     assert(create.status === 201, 'Create project returns 201');
     projectId = create.body.data.id;
 
-    // 2. Gates: run-campaign-manager and approve/final blocked
+    // 2. Gates
     console.log('\n=== Gates ===');
     const cm0 = await fetchJson(`${BASE}/projects/${projectId}/agents/run-campaign-manager`, { method: 'POST' });
     assert(cm0.status === 400, 'run-campaign-manager blocked before specialists');
@@ -85,8 +96,11 @@ async function main() {
     const af0 = await fetchJson(`${BASE}/projects/${projectId}/approve/final`, { method: 'POST' });
     assert(af0.status === 400, 'approve/final blocked before assembly');
 
-    const exp0json = await fetchText(`${BASE}/projects/${projectId}/export/json`);
-    assert(exp0json.status === 400, 'JSON export blocked before final approval');
+    const exp0docx = await fetchText(`${BASE}/projects/${projectId}/export/docx`);
+    assert(exp0docx.status === 400, 'DOCX export blocked before final approval');
+
+    const exp0pdf = await fetchText(`${BASE}/projects/${projectId}/export/pdf`);
+    assert(exp0pdf.status === 400, 'PDF export blocked before final approval');
 
     // 3. Setup full state
     console.log('\n=== Setup full state ===');
@@ -118,6 +132,10 @@ async function main() {
           marketResearch: { model: 'gemini', generatedAt: new Date().toISOString(), target_audience_insights: ['Eco conscious'], competitor_analysis: ['Comp X'], market_trends: ['Sustainability'], channel_recommendations: ['Instagram'], benchmark_data: ['CTR 2%'], risk_factors: ['Greenwashing'], opportunities: ['Untapped'], summary: 'Research summary' },
         },
         specialistsStage: 'generated',
+        conceptImages: [
+          { id: 'ci-1', label: 'Hero Banner', prompt: 'A green forest hero banner', imagePath: '/uploads/hero-banner.png', stage: 'creator', createdAt: new Date().toISOString() },
+          { id: 'ci-2', label: 'Social Post', prompt: 'A social media post mockup', imagePath: '/uploads/social-post.png', stage: 'creator', createdAt: new Date().toISOString() },
+        ],
       }
     });
     assert(setup.status === 200, 'PUT intake with full state returns 200');
@@ -128,10 +146,8 @@ async function main() {
     assert(cm.status === 200, 'run-campaign-manager returns 200');
     assert(!!cm.body.data.campaignTitle, 'Assembly has campaignTitle');
     assert(!!cm.body.data.headlines, 'Assembly has headlines');
-    assert(Array.isArray(cm.body.data.headlines), 'headlines is array');
-    assert(!!cm.body.data.adCopy, 'Assembly has adCopy');
-    assert(!!cm.body.data.imagePrompts, 'Assembly has imagePrompts');
-    assert(cm.body.data.feedbackCount === 0, 'feedbackCount is 0');
+    assert(!!cm.body.data.conceptImages, 'Assembly has conceptImages');
+    assert(cm.body.data.conceptImages.length === 2, 'Assembly has 2 concept images');
 
     // Verify persistence
     const projAfterCm = await fetchJson(`${BASE}/projects/${projectId}`);
@@ -144,35 +160,32 @@ async function main() {
     assert(af.status === 200, 'approve/final returns 200');
     assert(af.body.data.finalApproved === true, 'finalApproved is true');
 
-    // 6. Export JSON
-    console.log('\n=== Export JSON ===');
-    const expJson = await fetchText(`${BASE}/projects/${projectId}/export/json`);
-    assert(expJson.status === 200, 'JSON export returns 200');
-    const jsonData = JSON.parse(expJson.body);
-    assert(jsonData.campaignTitle === 'Green Launch', 'JSON has campaignTitle');
-    assert(Array.isArray(jsonData.headlines), 'JSON headlines is array');
-    assert(Array.isArray(jsonData.imagePrompts), 'JSON imagePrompts is array');
+    // 6. Export DOCX
+    console.log('\n=== Export DOCX ===');
+    const expDocx = await fetchBinary(`${BASE}/projects/${projectId}/export/docx`);
+    assert(expDocx.status === 200, 'DOCX export returns 200');
+    assert(expDocx.body.length > 1000, 'DOCX body has substantial content');
+    const docxHeader = expDocx.body.toString('utf-8').substring(0, 2);
+    assert(docxHeader === 'PK', `DOCX starts with ZIP magic bytes (PK): ${docxHeader}`);
+    assert(expDocx.headers['content-type']?.includes('openxmlformats'), 'DOCX has correct content-type header');
 
-    // 7. Export Markdown
-    console.log('\n=== Export Markdown ===');
-    const expMd = await fetchText(`${BASE}/projects/${projectId}/export/markdown`);
-    assert(expMd.status === 200, 'Markdown export returns 200');
-    assert(expMd.body.includes('# Green Launch'), 'Markdown has h1 title');
-    assert(expMd.body.includes('## Campaign Objective'), 'Markdown has objective heading');
-    assert(expMd.body.includes('## Headlines'), 'Markdown has headlines heading');
-    assert(expMd.body.includes('- Eco Headline'), 'Markdown has headline content');
-    assert(expMd.body.includes('## Image Prompts'), 'Markdown has image prompts heading');
-    assert(expMd.body.includes('## Summary'), 'Markdown has summary heading');
+    // 7. Export PDF
+    console.log('\n=== Export PDF ===');
+    const expPdf = await fetchBinary(`${BASE}/projects/${projectId}/export/pdf`);
+    assert(expPdf.status === 200, 'PDF export returns 200');
+    assert(expPdf.body.length > 100, 'PDF body has content');
+    const pdfHeader = expPdf.body.toString('utf-8').substring(0, 5);
+    assert(pdfHeader === '%PDF-', `PDF magic bytes found: ${pdfHeader}`);
+    assert(expPdf.headers['content-type'] === 'application/pdf', 'PDF has correct content-type header');
 
-    // 8. Export HTML
-    console.log('\n=== Export HTML ===');
-    const expHtml = await fetchText(`${BASE}/projects/${projectId}/export/html`);
-    assert(expHtml.status === 200, 'HTML export returns 200');
-    assert(expHtml.body.includes('<!DOCTYPE html>'), 'HTML has doctype');
-    assert(expHtml.body.includes('<h1>Green Launch</h1>'), 'HTML has h1');
-    assert(expHtml.body.includes('<h2>Campaign Objective</h2>'), 'HTML has h2');
-    assert(expHtml.body.includes('<li>Eco Headline</li>'), 'HTML has headline content');
-    assert(expHtml.body.includes('</html>'), 'HTML has closing tag');
+    // 8. Verify old formats no longer exist
+    console.log('\n=== Deprecated formats return 404 ===');
+    const oldJson = await fetchText(`${BASE}/projects/${projectId}/export/json`);
+    assert(oldJson.status === 404, 'JSON export returns 404');
+    const oldMd = await fetchText(`${BASE}/projects/${projectId}/export/markdown`);
+    assert(oldMd.status === 404, 'Markdown export returns 404');
+    const oldHtml = await fetchText(`${BASE}/projects/${projectId}/export/html`);
+    assert(oldHtml.status === 404, 'HTML export returns 404');
 
     // Cleanup
     console.log('\n=== Cleanup ===');

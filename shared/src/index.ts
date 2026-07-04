@@ -36,6 +36,17 @@ export const UploadedFileSchema = z.object({
 });
 export type UploadedFile = z.infer<typeof UploadedFileSchema>;
 
+// ── Generated Concept Image ──
+export const GeneratedConceptImageSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  prompt: z.string(),
+  imagePath: z.string(),
+  stage: z.enum(['creator']),
+  createdAt: z.string(),
+});
+export type GeneratedConceptImage = z.infer<typeof GeneratedConceptImageSchema>;
+
 // ── Intake Agent Output Schemas ──
 
 export const MeetingNotesIntakeSchema = z.object({
@@ -235,6 +246,8 @@ export const IntakeDataSchema = z.object({
   specialistsStage: SpecialistsStage.default('pending'),
   specialistOutputs: SpecialistOutputsSchema.nullable().default(null),
   editableSpecialistOutputs: SpecialistOutputsSchema.nullable().default(null),
+  // Generated Concept Images
+  conceptImages: z.array(GeneratedConceptImageSchema).default([]),
 });
 export type IntakeData = z.infer<typeof IntakeDataSchema>;
 
@@ -324,6 +337,12 @@ export const FinalAssemblySchema = z.object({
     format: z.string(),
     prompt: z.string(),
   })),
+  conceptImages: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+    prompt: z.string(),
+    imagePath: z.string(),
+  })),
   audienceInsights: z.array(z.string()),
   competitorAnalysis: z.array(z.string()),
   risks: z.array(z.string()),
@@ -335,7 +354,7 @@ export const FinalAssemblySchema = z.object({
 export type FinalAssembly = z.infer<typeof FinalAssemblySchema>;
 
 export const ExportArtifactSchema = z.object({
-  format: z.enum(['json', 'markdown', 'html']),
+  format: z.enum(['docx', 'pdf']),
   content: z.string(),
   generatedAt: z.string(),
 });
