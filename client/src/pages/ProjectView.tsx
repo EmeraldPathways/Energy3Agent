@@ -24,7 +24,7 @@ import {
   type ManagerBrief,
 } from '../api.js';
 
-// ── Stage definitions ──
+// -- Stage definitions --
 
 type StageStatus = 'not-started' | 'in-progress' | 'needs-review' | 'approved' | 'blocked';
 
@@ -92,7 +92,7 @@ function deriveStageStatuses(project: Project): Record<string, StageStatus> {
   }
 
   // specialists
-  if (i.specialistsStage === 'completed') {
+  if (i.specialistsStage === 'generated') {
     s.specialists = 'approved';
   } else if (i.specialistOutputs && Object.keys(i.specialistOutputs as object).length > 0) {
     s.specialists = 'needs-review';
@@ -103,7 +103,7 @@ function deriveStageStatuses(project: Project): Record<string, StageStatus> {
   }
 
   // feedback
-  if (i.specialistsStage === 'completed') {
+  if (i.specialistsStage === 'generated') {
     const revisions = i.revisionDecisions || [];
     const hasPending = revisions.some(d => !d.completedAt);
     s.feedback = hasPending ? 'in-progress' : (revisions.length > 0 ? 'approved' : 'needs-review');
@@ -116,7 +116,7 @@ function deriveStageStatuses(project: Project): Record<string, StageStatus> {
     s.export = 'approved';
   } else if (i.finalAssemblyStage === 'generated') {
     s.export = 'needs-review';
-  } else if (i.specialistsStage === 'completed') {
+  } else if (i.specialistsStage === 'generated') {
     s.export = 'in-progress';
   } else {
     s.export = 'not-started';
@@ -133,7 +133,7 @@ function activeStageKey(statuses: Record<string, StageStatus>): string {
   return 'export';
 }
 
-// ── Stage rail component ──
+// -- Stage rail component --
 
 function StageRail({ statuses, activeKey }: { statuses: Record<string, StageStatus>; activeKey: string }) {
   return (
@@ -153,7 +153,7 @@ function StageRail({ statuses, activeKey }: { statuses: Record<string, StageStat
   );
 }
 
-// ── Shared helpers ──
+// -- Shared helpers --
 
 function ArraySection({ title, items }: { title: string; items: string[] }) {
   if (!items || items.length === 0) return null;
@@ -236,7 +236,7 @@ function OutputGrid({ data }: { data: Record<string, unknown> }) {
   );
 }
 
-// ── Main ProjectView ──
+// -- Main ProjectView --
 
 export default function ProjectView() {
   const { id } = useParams<{ id: string }>();
@@ -265,7 +265,7 @@ export default function ProjectView() {
     fetchProject();
   }, [fetchProject]);
 
-  // ── Phase 3 handlers ──
+  // -- Phase 3 handlers --
 
   async function handleTextSave(field: string, value: string) {
     if (!id) return;
@@ -335,7 +335,7 @@ export default function ProjectView() {
     }
   }
 
-  // ── Phase 4 handlers ──
+  // -- Phase 4 handlers --
 
   async function handleRunManager() {
     if (!id) return;
@@ -371,7 +371,6 @@ export default function ProjectView() {
   }
 
   if (loading) return <p className="status-msg">Loading project...</p>;
-  if (error) return <div className="error-banner">{error} <button className="btn btn-sm" onClick={() => setError(null)}>Dismiss</button></div>;
   if (!project) return <p className="status-msg">Project not found.</p>;
 
   const { intake } = project;
@@ -388,7 +387,7 @@ export default function ProjectView() {
     <div>
       <Link to="/" className="back-link">Back to Dashboard</Link>
 
-      {/* ── Project Header ── */}
+      {/* -- Project Header -- */}
       <div className="project-header">
         <div className="project-header-top">
           <h1>{project.name}</h1>
@@ -402,13 +401,13 @@ export default function ProjectView() {
         </div>
       </div>
 
-      {/* ── Two-column: stage rail + content ── */}
+      {/* -- Two-column: stage rail + content -- */}
       <div className="project-view">
         <StageRail statuses={statuses} activeKey={activeStageKey(statuses)} />
 
         <div className="project-content">
 
-          {/* ── Error banner ── */}
+          {/* -- Error banner -- */}
           {error && (
             <div className="error-banner">
               <span>{error}</span>
@@ -416,18 +415,25 @@ export default function ProjectView() {
             </div>
           )}
 
-          {/* ── Phase 3: Intake (Setup, Human Check, Run, Review) ── */}
+          {/* -- Phase 3: Intake (Setup, Human Check, Run, Review) -- */}
           {!isIntakeApproved && (
             <>
               {intake.stage !== 'intake-review' && !intake.humanCheckApproved && (
                 <section className="workflow-section" aria-labelledby="setup-heading">
                   <h2 id="setup-heading">Project Setup</h2>
                   <h3>Meeting Notes</h3>
-                  <textarea rows={5} value={intake.meetingNotesText} onChange={e => setProject({ ...project, intake: { ...intake, meetingNotesText: e.target.value } })} onBlur={() => handleTextSave('meetingNotesText', intake.meetingNotesText)} placeholder="Paste meeting notes or upload a file..." />
+                  <textarea rows={5} value={intake.meetingNotesText} onChange={e => setProject({ ...project, intake: { ...intake, meetingNotesText: e.target.value } })} onBlur={e => handleTextSave('meetingNotesText', e.currentTarget.value)} placeholder="Paste meeting notes or upload a file..." />
                   <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'meetingNotes')} /></div>
                   <h3>Brand Guide</h3>
-                  <textarea rows={5} value={intake.brandGuideText} onChange={e => setProject({ ...project, intake: { ...intake, brandGuideText: e.target.value } })} onBlur={() => handleTextSave('brandGuideText', intake.brandGuideText)} placeholder="Paste brand guide text or upload a file..." />
+                  <textarea rows={5} value={intake.brandGuideText} onChange={e => setProject({ ...project, intake: { ...intake, brandGuideText: e.target.value } })} onBlur={e => handleTextSave('brandGuideText', e.currentTarget.value)} placeholder="Paste brand guide text or upload a file..." />
                   <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'brandGuide')} /></div>
+                  <h3>Images & Assets</h3>
+                  <label className="upload-label">Logo</label>
+                  <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg" onChange={e => handleFileUpload(e, 'logo')} /></div>
+                  <label className="upload-label">Product Images</label>
+                  <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp" onChange={e => handleFileUpload(e, 'productImages')} /></div>
+                  <label className="upload-label">Campaign Imagery</label>
+                  <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp" onChange={e => handleFileUpload(e, 'campaignImagery')} /></div>
                 </section>
               )}
 
@@ -438,7 +444,7 @@ export default function ProjectView() {
                   {uploads.length > 0 && (
                     <ul className="upload-list">{uploads.map(u => <li key={u.id}><span>{u.originalName} ({u.category}, {(u.size / 1024).toFixed(1)}KB)</span><button className="btn btn-danger btn-sm" onClick={() => handleDeleteUpload(u.id)}>Delete</button></li>)}</ul>
                   )}
-                  <button className="btn btn-primary" onClick={handleHumanCheck}>Confirm & Run Intake Agents</button>
+                  <button className="btn btn-primary" onClick={handleHumanCheck}>Confirm and Run Intake Agents</button>
                 </section>
               )}
 
@@ -467,7 +473,7 @@ export default function ProjectView() {
             </>
           )}
 
-          {/* ── Phase 4: Manager Brief ── */}
+          {/* -- Phase 4: Manager Brief -- */}
           {isIntakeApproved && (
             <section className="workflow-section" aria-labelledby="brief-heading">
               <h2 id="brief-heading">Campaign Brief</h2>
@@ -510,7 +516,7 @@ export default function ProjectView() {
             </section>
           )}
 
-          {/* ── Phase 5: Creator Stage ── */}
+          {/* -- Phase 5: Creator Stage -- */}
           {isBriefApproved && (
             <section className="workflow-section" aria-labelledby="creator-heading">
               <h2 id="creator-heading">Creator Stage</h2>
@@ -540,7 +546,7 @@ export default function ProjectView() {
             </section>
           )}
 
-          {/* ── Phase 5: Specialist Outputs Review ── */}
+          {/* -- Phase 5: Specialist Outputs Review -- */}
           {hasCreator && (
             <section className="workflow-section" aria-labelledby="specialists-heading">
               <h2 id="specialists-heading">Specialist Outputs</h2>
@@ -588,7 +594,7 @@ export default function ProjectView() {
             </section>
           )}
 
-          {/* ── Phase 6: Feedback & Revision ── */}
+          {/* -- Phase 6: Feedback & Revision -- */}
           {hasSpecialists && (
             <Phase6Feedback
               projectId={id!}
@@ -600,7 +606,7 @@ export default function ProjectView() {
             />
           )}
 
-          {/* ── Phase 7: Final Assembly & Export ── */}
+          {/* -- Phase 7: Final Assembly & Export -- */}
           {hasSpecialists && (
             <Phase7Final
               projectId={id!}
@@ -617,7 +623,7 @@ export default function ProjectView() {
   );
 }
 
-// ── Brief render ──
+// -- Brief render --
 
 function RenderBriefOutput({ brief }: { brief: ManagerBrief }) {
   return (
@@ -647,7 +653,7 @@ function RenderBriefOutput({ brief }: { brief: ManagerBrief }) {
   );
 }
 
-// ── Brief editor ──
+// -- Brief editor --
 
 function BriefEditor({ brief, onChange }: { brief: ManagerBrief; onChange: (b: ManagerBrief) => void }) {
   return (
@@ -676,7 +682,7 @@ function BriefEditor({ brief, onChange }: { brief: ManagerBrief; onChange: (b: M
   );
 }
 
-// ── Phase 6: Feedback & Revision component ──
+// -- Phase 6: Feedback & Revision component --
 
 function Phase6Feedback({
   projectId,
@@ -786,7 +792,7 @@ function Phase6Feedback({
           <ul className="revision-list">
             {decisions.map((d) => (
               <li key={d.id}>
-                <strong>{d.targetSection}</strong> &rarr; {d.targetAgent}
+                <strong>{d.targetSection}</strong> {'>'} {d.targetAgent}
                 {d.strategyChanged && <span style={{ color: 'var(--color-warning)' }}> strategy changed</span>}
                 {d.briefReapprovalRequired && <span style={{ color: 'var(--color-danger)' }}> brief reapproval needed</span>}
                 {d.completedAt ? <span style={{ color: 'var(--color-success)' }}> completed {new Date(d.completedAt).toLocaleTimeString()}</span> : <span style={{ color: 'var(--color-warning)' }}> pending</span>}
@@ -799,7 +805,7 @@ function Phase6Feedback({
   );
 }
 
-// ── Phase 7: Final Assembly & Export component ──
+// -- Phase 7: Final Assembly & Export component --
 
 function Phase7Final({
   projectId,

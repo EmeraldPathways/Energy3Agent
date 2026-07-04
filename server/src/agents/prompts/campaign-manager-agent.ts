@@ -1,3 +1,6 @@
+// NOTE: This prompt is NOT currently wired to any runner.
+// Phase 7 uses deterministic assembly rather than Gemini for final output.
+// If wired in the future, update to match FinalAssemblySchema camelCase output shape.
 import { SHARED_AGENT_RULES } from './shared-rules.js';
 
 export const CAMPAIGN_MANAGER_AGENT_PROMPT = `${SHARED_AGENT_RULES}

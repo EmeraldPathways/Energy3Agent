@@ -1,3 +1,5 @@
+// NOTE: This prompt is NOT currently wired to any runner.
+// Revision routing is implemented in code (phase6.ts targetAgentMap) instead.
 import { SHARED_AGENT_RULES } from './shared-rules.js';
 
 export const REVISION_ROUTER_PROMPT = `${SHARED_AGENT_RULES}

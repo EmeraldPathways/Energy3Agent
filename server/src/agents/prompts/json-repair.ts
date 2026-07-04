@@ -1,3 +1,4 @@
+// NOTE: This prompt is NOT currently wired to any runner.
 export const JSON_REPAIR_PROMPT = `You are the JSON Repair Agent inside a professional AI marketing campaign builder.
 
 Your only job is to repair invalid JSON so it matches the required schema.

@@ -1,5 +1,5 @@
 /* ==========================================
-   AI Campaign Builder — Design System
+   AI Campaign Builder - Design System
    calm / minimal / teal-grey-white palette
    ========================================== */
 
@@ -35,7 +35,7 @@ body {
   font-size: 14px;
 }
 
-/* ── Layout shell ── */
+/* -- Layout shell -- */
 
 .app-shell {
   min-height: 100vh;
@@ -64,7 +64,7 @@ body {
   padding: 24px 20px;
 }
 
-/* ── Buttons ── */
+/* -- Buttons -- */
 
 .btn {
   display: inline-flex;
@@ -123,7 +123,7 @@ body {
   font-size: 0.78rem;
 }
 
-/* ── Error & status ── */
+/* -- Error & status -- */
 
 .error-banner {
   background: var(--color-danger-soft);
@@ -182,7 +182,7 @@ body {
   color: var(--color-danger);
 }
 
-/* ── Project table (Dashboard) ── */
+/* -- Project table (Dashboard) -- */
 
 .project-table {
   width: 100%;
@@ -230,7 +230,7 @@ body {
   color: var(--color-text-muted);
 }
 
-/* ── Dashboard ── */
+/* -- Dashboard -- */
 
 .dashboard-header {
   display: flex;
@@ -281,7 +281,7 @@ body {
   box-shadow: 0 0 0 2px var(--color-primary-soft);
 }
 
-/* ── Project View — two-column layout ── */
+/* -- Project View - two-column layout -- */
 
 .project-view {
   display: flex;
@@ -366,7 +366,7 @@ body {
   min-width: 0;
 }
 
-/* ── Project header ── */
+/* -- Project header -- */
 
 .project-header {
   background: var(--color-surface);
@@ -403,7 +403,7 @@ body {
   gap: 4px;
 }
 
-/* ── Page back link ── */
+/* -- Page back link -- */
 
 .back-link {
   display: inline-block;
@@ -417,7 +417,7 @@ body {
   color: var(--color-primary);
 }
 
-/* ── Sections ── */
+/* -- Sections -- */
 
 .workflow-section {
   background: var(--color-surface);
@@ -457,7 +457,7 @@ body {
   line-height: 1.6;
 }
 
-/* ── Textareas & inputs ── */
+/* -- Textareas & inputs -- */
 
 .workflow-section textarea,
 .workflow-section input[type="text"] {
@@ -495,7 +495,7 @@ body {
   box-shadow: 0 0 0 2px var(--color-primary-soft);
 }
 
-/* ── Upload row ── */
+/* -- Upload row -- */
 
 .upload-row {
   display: flex;
@@ -509,7 +509,7 @@ body {
   color: var(--color-text-muted);
 }
 
-/* ── Upload list ── */
+/* -- Upload list -- */
 
 .upload-list {
   list-style: none;
@@ -528,7 +528,7 @@ body {
   background: var(--color-surface-muted);
 }
 
-/* ── Output blocks ── */
+/* -- Output blocks -- */
 
 .output-block {
   margin-bottom: 14px;
@@ -580,7 +580,7 @@ body {
   line-height: 1.5;
 }
 
-/* ── Grouped sections (intake outputs etc) ── */
+/* -- Grouped sections (intake outputs etc) -- */
 
 .intake-tabs {
   display: flex;
@@ -610,7 +610,7 @@ body {
   border-bottom-color: var(--color-primary);
 }
 
-/* ── Brief fields ── */
+/* -- Brief fields -- */
 
 .brief-field-group {
   margin-bottom: 12px;
@@ -642,7 +642,7 @@ body {
   box-shadow: 0 0 0 2px var(--color-primary-soft);
 }
 
-/* ── Button groups ── */
+/* -- Button groups -- */
 
 .button-group {
   display: flex;
@@ -652,7 +652,7 @@ body {
   flex-wrap: wrap;
 }
 
-/* ── Locked state ── */
+/* -- Locked state -- */
 
 .locked-state {
   background: var(--color-surface-muted);
@@ -668,7 +668,7 @@ body {
   color: var(--color-text);
 }
 
-/* ── Feedback history ── */
+/* -- Feedback history -- */
 
 .feedback-list {
   list-style: none;
@@ -700,7 +700,7 @@ body {
   color: var(--color-text-muted);
 }
 
-/* ── Export buttons ── */
+/* -- Export buttons -- */
 
 .export-actions {
   display: flex;

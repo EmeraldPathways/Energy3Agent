@@ -37,11 +37,13 @@ PORT=3001
 | Command | Purpose |
 |---------|---------|
 | `npm.cmd run dev` | Start both client (port 3000) and server (port 3001) |
+| `run-local.cmd` | Start missing client/server processes, wait for readiness, write logs |
 | `npm.cmd run dev:client` | Start client only |
 | `npm.cmd run dev:server` | Start server only |
 | `npm.cmd run build` | TypeScript compilation + Vite production build |
 | `npm.cmd run validate:crud` | CRUD API test suite (11 assertions) |
 | `node test/phase3-validation.mjs` | Intake flow validation |
+| `node test/phase4-validation.mjs` | Manager brief validation |
 | `node test/phase5-validation.mjs` | Creator + specialists validation |
 | `node test/phase6-validation.mjs` | Feedback + revision validation |
 | `node test/phase7-validation.mjs` | Final assembly + export validation |

@@ -210,6 +210,11 @@ router.post('/:id/agents/run-intake', async (req: Request, res: Response) => {
 
   const intake = parseIntake(row.intake);
 
+  if (!intake.meetingNotesText?.trim() && !intake.brandGuideText?.trim()) {
+    res.status(400).json({ error: 'No source data to process. Upload meeting notes or brand guide text before running intake agents.' });
+    return;
+  }
+
   try {
     const [meetingNotesIntake, brandGuideIntake] = await Promise.all([
       runMeetingNotesIntake(intake.meetingNotesText || 'No meeting notes provided.'),

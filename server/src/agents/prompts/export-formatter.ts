@@ -1,3 +1,5 @@
+// NOTE: This prompt is NOT currently wired to any runner.
+// Export formatting is done with deterministic generateMarkdown/generateHtml functions.
 import { SHARED_AGENT_RULES } from './shared-rules.js';
 
 export const EXPORT_FORMATTER_PROMPT = `${SHARED_AGENT_RULES}

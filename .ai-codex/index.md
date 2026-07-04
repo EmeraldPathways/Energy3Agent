@@ -15,7 +15,7 @@ Read this before broader repo exploration.
 ## Current Scope Notes
 
 - `scopes/phase-1-foundation.md` - original foundation scope reference
-- `scopes/phase-5-creator-specialists.md` - current active area for Creator and Specialists work
+- `scopes/phase-5-creator-specialists.md` - Creator and Specialists work reference
 
 ## Do Not Read
 
@@ -27,7 +27,16 @@ Read this before broader repo exploration.
 
 ## Current Repo Truth
 
-- Phases 1-4 are implemented and validated in the repo history.
-- Phase 5 code exists in the working tree: shared schemas, Phase 5 routes, Phase 5 runner, and prompt modules.
+- All 8 phases are implemented and validated:
+  - Phase 1: Foundation (monorepo, CRUD, SQLite, dashboard)
+  - Phase 2: Gemini backbone (centralized config, backend-only service)
+  - Phase 3: Intake stage (file uploads, 4 intake agents, approval gate)
+  - Phase 4: Manager brief (strategy brief generation, editable output, approval)
+  - Phase 5: Creator & Specialists (production plan, text/imagery/research agents)
+  - Phase 6: Feedback & Revision (targeted feedback, selective revision routing)
+  - Phase 7: Final Assembly & Export (deterministic assembly, JSON/Markdown/HTML export)
+  - Phase 8: Client UI (Vite + React frontend with workflow rail)
 - Prompt source of truth is `server/src/agents/prompts/*.ts`.
-- The main current risk area is Phase 5 integration quality: preserving Phase 3-4 behavior while extending the workflow forward.
+- Phase 7 (`campaign-manager-agent.ts`) is deterministic assembly — the Gemini prompt module exists but is not wired.
+- Several prompt modules (`revision-router`, `export-formatter`, `quality-safeguard`, `json-repair`) are exported but not imported by any runner — see comments in each file.
+- The full agent validation suite (`npm run validate:agents`) exercises all phases end-to-end with live Gemini.

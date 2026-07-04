@@ -12,10 +12,18 @@ const BASE = `http://localhost:${PORT}/api`;
 let projectId;
 let passed = 0;
 let failed = 0;
+let skipped = 0;
+
+const HAS_GEMINI = !!process.env.GEMINI_API_KEY;
 
 function assert(condition, label) {
   if (condition) { console.log(`  PASS: ${label}`); passed++; }
   else { console.log(`  FAIL: ${label}`); failed++; }
+}
+
+function skip(label) {
+  console.log(`  SKIP: ${label} (no GEMINI_API_KEY)`);
+  skipped++;
 }
 
 function fetchJson(url, options = {}) {
@@ -100,31 +108,39 @@ async function main() {
 
     // 5. Run manager brief
     console.log('\n=== Generate Manager Brief ===');
-    const briefGen = await fetchJson(`${BASE}/projects/${projectId}/agents/run-manager`, { method: 'POST' });
-    if (briefGen.status === 200 && briefGen.body.data) {
-      assert(true, 'run-manager returns 200 after intake approval');
-      assert(briefGen.body.data.campaign_title, 'Brief has campaign_title');
-      assert(Array.isArray(briefGen.body.data.key_messages), 'key_messages is array');
-      assert(Array.isArray(briefGen.body.data.approval_checklist), 'approval_checklist is array');
+    if (HAS_GEMINI) {
+      const briefGen = await fetchJson(`${BASE}/projects/${projectId}/agents/run-manager`, { method: 'POST' });
+      if (briefGen.status === 200 && briefGen.body.data) {
+        assert(true, 'run-manager returns 200 after intake approval');
+        assert(briefGen.body.data.campaign_title, 'Brief has campaign_title');
+        assert(Array.isArray(briefGen.body.data.key_messages), 'key_messages is array');
+        assert(Array.isArray(briefGen.body.data.approval_checklist), 'approval_checklist is array');
+      } else {
+        failed++;
+        console.log('  FAIL: Brief generation failed');
+        console.log('  Status:', briefGen.status);
+        console.log('  Error:', JSON.stringify(briefGen.body));
+      }
     } else {
-      failed++;
-      console.log('  FAIL: Brief generation failed');
-      console.log('  Status:', briefGen.status);
-      console.log('  Error:', JSON.stringify(briefGen.body));
+      skip('Manager brief generation');
     }
 
     // 6. Approve brief
     console.log('\n=== Approve Campaign Brief ===');
-    const approve = await fetchJson(`${BASE}/projects/${projectId}/approve/brief`, { method: 'POST' });
-    if (approve.status === 200) {
-      assert(true, 'approve/brief returns 200');
-      assert(approve.body.data.briefApproved === true, 'briefApproved is true');
-      assert(approve.body.data.briefStage === 'approved', 'briefStage is approved');
+    if (HAS_GEMINI) {
+      const approve = await fetchJson(`${BASE}/projects/${projectId}/approve/brief`, { method: 'POST' });
+      if (approve.status === 200) {
+        assert(true, 'approve/brief returns 200');
+        assert(approve.body.data.briefApproved === true, 'briefApproved is true');
+        assert(approve.body.data.briefStage === 'approved', 'briefStage is approved');
+      } else {
+        failed++;
+        console.log('  FAIL: Brief approval failed');
+        console.log('  Status:', approve.status);
+        console.log('  Error:', JSON.stringify(approve.body));
+      }
     } else {
-      failed++;
-      console.log('  FAIL: Brief approval failed');
-      console.log('  Status:', approve.status);
-      console.log('  Error:', JSON.stringify(approve.body));
+      skip('Brief approval');
     }
 
     // 7. Delete project
@@ -133,8 +149,13 @@ async function main() {
     assert(del.status === 204, 'Delete project returns 204');
 
     console.log(`\n====================`);
-    console.log(`Results: ${passed} passed, ${failed} failed`);
+    console.log(`Results: ${passed} passed, ${failed} failed, ${skipped} skipped`);
     console.log(`====================`);
+
+    if (!HAS_GEMINI) {
+      console.log(`\nNOTE: GEMINI_API_KEY not set. Live agent execution paths were SKIPPED.`);
+    }
+
     process.exitCode = failed > 0 ? 1 : 0;
   } catch (err) {
     console.error('Fatal:', err);

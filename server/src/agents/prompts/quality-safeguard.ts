@@ -1,3 +1,4 @@
+// NOTE: This prompt is NOT currently wired to any runner.
 import { SHARED_AGENT_RULES } from './shared-rules.js';
 
 export const QUALITY_SAFEGUARD_PROMPT = `${SHARED_AGENT_RULES}

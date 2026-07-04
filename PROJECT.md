@@ -17,6 +17,7 @@
 ## Local Run Commands
 
 - App: `npm run dev`
+- Launcher: `run-local.cmd`
 - Frontend: `npm run dev:client`
 - Backend: `npm run dev:server`
 - Build: `npm run build`
