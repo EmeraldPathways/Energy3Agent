@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import {
   CreateProjectInputSchema,
   UpdateProjectInputSchema,
+  IntakeDataSchema,
 } from '@ai-campaign/shared';
 import { getDb } from '../db.js';
 
@@ -13,16 +14,24 @@ interface ProjectRow {
   name: string;
   description: string;
   status: string;
+  intake: string;
   created_at: string;
   updated_at: string;
 }
 
 function rowToProject(row: ProjectRow) {
+  let intake = {};
+  try {
+    intake = JSON.parse(row.intake || '{}');
+  } catch {
+    intake = {};
+  }
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     status: row.status,
+    intake,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -50,10 +59,11 @@ router.post('/', (req: Request, res: Response) => {
   const now = new Date().toISOString();
   const id = randomUUID();
   const { name, description = '' } = parsed.data;
+  const defaultIntake = JSON.stringify(IntakeDataSchema.parse({}));
 
   db.prepare(
-    'INSERT INTO projects (id, name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)'
-  ).run(id, name, description, 'draft', now, now);
+    'INSERT INTO projects (id, name, description, status, intake, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(id, name, description, 'draft', defaultIntake, now, now);
 
   const row = db
     .prepare('SELECT * FROM projects WHERE id = ?')
@@ -93,13 +103,27 @@ router.put('/:id', (req: Request, res: Response) => {
 
   const updates = parsed.data;
   const now = new Date().toISOString();
+
+  let intake = existing.intake;
+  if (updates.intake) {
+    const currentIntake = JSON.parse(existing.intake || '{}');
+    const merged = { ...currentIntake, ...updates.intake };
+    try {
+      IntakeDataSchema.parse(merged);
+    } catch {
+      res.status(400).json({ error: 'Invalid intake data structure' });
+      return;
+    }
+    intake = JSON.stringify(merged);
+  }
+
   const name = updates.name ?? existing.name;
   const description = updates.description ?? existing.description;
   const status = updates.status ?? existing.status;
 
   db.prepare(
-    'UPDATE projects SET name = ?, description = ?, status = ?, updated_at = ? WHERE id = ?'
-  ).run(name, description, status, now, req.params.id);
+    'UPDATE projects SET name = ?, description = ?, status = ?, intake = ?, updated_at = ? WHERE id = ?'
+  ).run(name, description, status, intake, now, req.params.id);
 
   const row = db
     .prepare('SELECT * FROM projects WHERE id = ?')
@@ -118,6 +142,7 @@ router.delete('/:id', (req: Request, res: Response) => {
     return;
   }
 
+  db.prepare('DELETE FROM uploads WHERE project_id = ?').run(req.params.id);
   db.prepare('DELETE FROM projects WHERE id = ?').run(req.params.id);
   res.status(204).send();
 });

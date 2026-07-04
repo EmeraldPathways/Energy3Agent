@@ -4,18 +4,15 @@ Use this file only when the project is being executed in stages.
 
 ## Active Phase
 
-- Name: Phase 1 - Foundation
-- Goal: Establish the monorepo structure, local persistence baseline, environment scaffolding, and first user flow for project CRUD.
-- In scope: `client/`, `server/`, `shared/`, root package/tooling files, SQLite bootstrap, local upload/data directories, `.env.example`, project dashboard, create/open/delete project flow, base project schema, base storage service
-- Out of scope: Gemini integration, file parsing, agents, approvals beyond baseline schema fields, exports, tests beyond minimal foundation smoke coverage
-- Success criteria: `npm install` succeeds, `npm run dev` starts the app, project CRUD works locally, and the repo contains the agreed monorepo structure for later phases
+- Name: Phase 4 - Manager Brief
+- Goal: Build the Manager Agent flow that turns an approved intake summary into an editable, approval-gated campaign brief.
+- In scope: Manager Agent backend orchestration, campaign brief schema and storage, quality checks for the brief, Campaign Brief page, editable brief UI, missing information checklist, compliance/risk display, and brief approval gate enforcement
+- Out of scope: Creator Agent, specialist agents, revision routing, final assembly, exports, image generation workflow beyond existing Phase 2/3 foundations
+- Success criteria: An intake-approved project can generate a Manager Brief, the brief is editable and reviewable in the UI, and the backend blocks later workflow until the brief is explicitly approved
 
 ## Upcoming Phases
 
-1. Phase 2 - Gemini Backbone
-2. Phase 3 - Intake Stage
-3. Phase 4 - Manager Brief
-4. Phase 5 - Creator And Specialists
-5. Phase 6 - Feedback And Selective Revision
-6. Phase 7 - Final Assembly And Export
-7. Phase 8 - Hardening
+1. Phase 5 - Creator And Specialists
+2. Phase 6 - Feedback And Selective Revision
+3. Phase 7 - Final Assembly And Export
+4. Phase 8 - Hardening
