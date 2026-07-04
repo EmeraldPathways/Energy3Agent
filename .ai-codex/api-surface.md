@@ -17,6 +17,11 @@
   - `POST /api/projects/:id/approve/brief`
   - `POST /api/projects/:id/agents/run-creator`
   - `POST /api/projects/:id/agents/run-specialists`
+  - `PUT /api/projects/:id/brief`
+  - `PUT /api/projects/:id/creator`
+  - `PUT /api/projects/:id/specialists`
+  - `GET /api/health`
+  - `POST /api/gemini-smoke`
   - `POST /api/projects/:id/feedback`
   - `POST /api/projects/:id/agents/revise`
   - `POST /api/projects/:id/approve/draft-outputs`
@@ -30,8 +35,22 @@
 - Shared types:
   - `Project`
   - `UploadedFile`
-  - `AgentRun`
-  - `FeedbackItem`
-  - `QualityCheck`
-  - `RevisionDecision`
-  - `ExportArtifact`
+  - `MeetingNotesIntake`
+  - `BrandGuideIntake`
+  - `AssetReviewIntake`
+  - `IntakeSummary`
+  - `ManagerBrief`
+  - `CreatorProductionPlan`
+  - `TextContentOutput`
+  - `ImageryCreativeOutput`
+  - `MarketResearchOutput`
+  - `SpecialistOutputs`
+
+## Current Gate Rules
+
+- `run-intake` assumes source intake data exists and stores outputs for review
+- `approve/intake` requires `intakeSummary`
+- `run-manager` requires `intakeApproved === true`
+- `approve/brief` requires `managerBrief`
+- `run-creator` requires `briefApproved === true` and `managerBrief`
+- `run-specialists` requires `creatorPlan` and `managerBrief`

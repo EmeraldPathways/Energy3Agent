@@ -1,6 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { execSync, spawn, type ChildProcess } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -51,23 +51,21 @@ async function waitForServer(retries = 40): Promise<void> {
       const res = await fetchJson(`${BASE}/health`);
       if (res.status === 200) return;
     } catch {
-      // server not ready yet
+      // Server not ready yet.
     }
-    await new Promise((r) => setTimeout(r, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
   throw new Error('Server did not become ready after retries');
 }
 
 function killStalePort() {
   try {
-    // Use PowerShell to kill process on the test port — more reliable on Windows
-    const { execSync } = require('node:child_process');
     execSync(
       `powershell -Command "Get-NetTCPConnection -LocalPort ${SERVER_PORT} -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"`,
       { stdio: 'ignore', timeout: 5000 },
     );
   } catch {
-    // no stale process, ok
+    // No stale process found on the test port.
   }
 }
 
@@ -76,13 +74,14 @@ before(async () => {
 
   await new Promise<void>((resolve, reject) => {
     serverProcess = spawn(
-      'node',
+      process.execPath,
       ['--import', 'tsx', 'server/src/index.ts'],
       {
         cwd: path.resolve(__dirname, '..'),
         env: { ...process.env, PORT: String(SERVER_PORT) },
-        stdio: 'pipe',
-        shell: true,
+        stdio: 'ignore',
+        shell: false,
+        windowsHide: true,
       },
     );
 
@@ -111,11 +110,6 @@ before(async () => {
       }
     });
 
-    // Drain stdout/stderr to prevent backpressure
-    serverProcess.stdout?.on('data', () => {});
-    serverProcess.stderr?.on('data', () => {});
-
-    // Poll health endpoint — no reliance on stdout text
     waitForServer(60)
       .then(() => {
         if (!settled) {

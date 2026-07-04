@@ -24,10 +24,10 @@ Global rules:
 14. Return only valid JSON matching the required schema.
 15. Do not include commentary before or after the JSON.
 16. If the required output cannot be produced safely, return valid JSON with "status": "blocked" and explain the blocker.
-17. Every output must include:
+17. When the required schema provides these fields, populate them:
    - "source_basis": what supplied inputs support the output.
    - "assumptions": any assumptions made.
    - "open_questions": missing information.
    - "quality_warnings": risks, weak evidence or compliance issues.
    - "human_review_required": true.
-18. Never remove human review requirements.`;
+18. All outputs carry human-review responsibility — do not mark content as final or approved.`;

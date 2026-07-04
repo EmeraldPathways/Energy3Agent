@@ -5,7 +5,7 @@
 - Name: AI Marketing Campaign Builder
 - Goal: Build a local-first AI marketing campaign app that turns meeting notes, brand guides, assets, and human feedback into an approval-gated campaign production workflow with exportable outputs.
 - Users: Internal marketing operators or consultants running campaign planning locally on one machine during MVP.
-- Current status: Phases 1-4 are implemented locally. Foundation, Gemini backbone, Intake Stage, and Manager Brief are built and validated. Phase 5 (Creator and Specialists) is the next build target.
+- Current status: All 8 phases complete. Full workflow from intake to export is implemented, validated, and documented.
 
 ## Stack
 
@@ -67,17 +67,17 @@
 
 ## Latest Validation
 
-- `npm run build` passes
-- `npm run validate:crud` passes
-- `node test/gemini-smoke.mjs` exists for Gemini path verification
-- `node test/phase3-validation.mjs` passes with full upload -> intake -> approval coverage
-- `node test/phase4-validation.mjs` passes with manager-brief gate, generation, edit-path, and approval coverage
+- `npm.cmd run build` passes (all 3 workspaces)
+- `npm.cmd run validate:crud` passes (11/11)
+- `node test/phase3-validation.mjs` passes — intake flow with uploads, 4 agents, approval
+- `node test/phase4-validation.mjs` passes — brief generation, editing, approval gate
+- `node test/phase5-validation.mjs` passes — creator plan, specialists, persistence
+- `node test/phase6-validation.mjs` passes — feedback capture, selective revision, gates
+- `node test/phase7-validation.mjs` passes — final assembly, approval, 3-format export
 
 ## Current Priorities
 
-1. Build Phase 5 Creator and Specialists on top of the approved brief flow
-2. Preserve the Codex planner/reviewer and DeepSeek/Cline implementation split through `.agent-handoff`
-3. Keep backend-enforced gates, shared schema contracts, and `.ts` prompt modules stable as later phases add more agents
+All phases complete. No active build priorities — project is in maintenance/stable state.
 
 ## Running Phase Map
 
@@ -102,22 +102,18 @@
   - Delivered: `ManagerBriefSchema`, intake brief state fields, `/api/projects/:id/agents/run-manager`, `/api/projects/:id/approve/brief`, `/api/projects/:id/brief`, ProjectView brief review/edit/approve flow, Phase 4 validation script
   - Validation: `npm run build`, `node test/phase4-validation.mjs`
 - Phase 5 - Creator And Specialists
-  - Status: next active phase
-  - Goal: generate the production plan and specialist outputs after brief approval
-  - Planned work: Creator Agent, Text Content Agent, Imagery / Creative Agent, Market Research Agent, specialist output review UI
-  - Success signal: approved brief can produce grouped draft outputs with model metadata and human review controls
+  - Status: complete
+  - Outcome: Creator production plan + 3 specialist outputs (Text Content, Imagery Creative, Market Research) with parallel execution and review UI
+  - Validation: `node test/phase5-validation.mjs`
 - Phase 6 - Feedback And Selective Revision
-  - Status: pending
-  - Goal: route human feedback to the correct agent and rerun only affected sections
-  - Planned work: revision router, selective rerun logic, feedback capture, section-level revision handling, reapproval rules when strategy changes
-  - Success signal: targeted feedback updates only the relevant outputs without overwriting unaffected approved sections
+  - Status: complete
+  - Outcome: Target-section feedback capture, deterministic revision routing, untouched output preservation, brief reapproval triggers
+  - Validation: `node test/phase6-validation.mjs`
 - Phase 7 - Final Assembly And Export
-  - Status: pending
-  - Goal: assemble approved outputs into the final campaign pack
-  - Planned work: Campaign Manager Agent, final assembly page, final approval gate, JSON/Markdown/HTML export generation
-  - Success signal: final-approved project exports a complete campaign pack from approved inputs only
+  - Status: complete
+  - Outcome: Final assembly from approved outputs, final approval gate, JSON/Markdown/HTML export with download
+  - Validation: `node test/phase7-validation.mjs`
 - Phase 8 - Hardening
-  - Status: pending
-  - Goal: polish, reliability, documentation, and final validation
-  - Planned work: README completion, validation tightening, error-state polish, test coverage improvements, UX cleanup, final MVP limitations pass
-  - Success signal: build and validations are stable, documentation is accurate, and the MVP workflow is consistent end to end
+  - Status: complete
+  - Outcome: README documentation, phases/project doc updates, UX polish, cleanup
+  - Validation: all phase tests + build + CRUD pass

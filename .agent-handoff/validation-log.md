@@ -1,59 +1,62 @@
 # Validation Log
 
-## Phase 4 — Manager Brief
+## Phase 8 Fix Round — Codex Review Corrections
 
-### Command — npm run build
-
-```powershell
-npm run build
-```
+### Command — npm.cmd run build
 
 - Result: PASS
-- Notes: shared/server/client all compile cleanly.
 
-### Command — npm run validate:crud
+### Changes
 
-```powershell
-npm run validate:crud
-```
+- `PROJECT.md` — fixed stale summary (claimed only Phases 1-4), updated "Latest Validation" with all phase test commands, replaced "Current Priorities" to reflect completed state
+- `README.md` — replaced box-drawing characters in monorepo structure diagram with plain ASCII, replaced Unicode arrow symbols with comma-separated text in user workflow
+- `client/src/pages/ProjectView.tsx` — replaced HTML entity back-arrow with plain "Back to Dashboard" text
+
+---
+
+## Phase 8 — Hardening
+
+### Original pass
+
+- `README.md` — full rewrite with project overview, setup, commands, phase summaries, workflow, limitations
+- `PROJECT.md` — updated phase map to show all 8 phases complete
+- `phases.md` — marked all phases done
+- `client/src/pages/ProjectView.tsx` — added dismiss button to error banner
+
+---
+
+## Phase 7 — Final Assembly & Export
+
+### Command — npm.cmd run build
+
+- Result: PASS
+
+### Command — npm.cmd run validate:crud
 
 - Result: PASS — 11/11 tests pass
 
-### Command — node test/phase4-validation.mjs
+### Command — node test/phase7-validation.mjs
 
-```powershell
-node test/phase4-validation.mjs
-```
+- Result: **PASS — 34/34 assertions pass**
+- Validated: create project, 3 gate checks (run-campaign-manager, approve/final, export blocked before prerequisites), full state setup, campaign manager output (all 10 field checks including persistence), final approval, JSON export (3 assertions), Markdown export (7 assertions including structured headings/content), HTML export (5 assertions including doctype/H1/H2/list/closing tag), delete project.
 
-- Result: **PASS — 14/14 tests pass**
-- Validated:
-  - run-manager blocked before intake approval (400, correct error)
-  - approve/brief blocked before brief exists (400, correct error)
-  - PUT intake sets approved intake state (200)
-  - run-manager returns 200 after intake approval
-  - Brief has campaign_title, key_messages is array, approval_checklist is array
-  - approve/brief returns 200, briefApproved: true, briefStage: approved
-  - Delete project returns 204
+---
 
-### Files added/changed
+## Phase 6 — Feedback & Selective Revision
 
-| File | Change |
-|------|--------|
-| `shared/src/index.ts` | Added `ManagerBriefSchema` (16 fields), `BriefStage` enum, brief state fields in `IntakeDataSchema` |
-| `server/src/agents/prompts/manager-agent.ts` | Created — Manager Agent prompt with template placeholders |
-| `server/src/agents/runManager.ts` | Created — `runManagerBrief()` with JSON repair |
-| `server/src/routes/brief.ts` | Created — POST run-manager (gate: intake approval), POST approve/brief (gate: brief must exist), PUT brief (editable save) |
-| `server/src/index.ts` | Updated — wired `briefRouter` |
-| `client/src/api.ts` | Added `ManagerBrief` type, `runManagerBrief()`, `approveBrief()`, `updateEditableBrief()` |
-| `client/src/pages/ProjectView.tsx` | Extended with Phase 4: Campaign Brief section with Generate/Edit/Approve flow |
-| `test/phase4-validation.mjs` | Created — 14 assertions proving gates, generation, approval |
-| `.agent-handoff/validation-log.md` | Updated |
-| `.agent-handoff/cline-result.md` | Updated |
+### Command — npm.cmd run build
 
-### Phase 4 routes
+- Result: PASS
 
-| Route | Method | Gate |
-|--------|--------|------|
-| `/api/projects/:id/agents/run-manager` | POST | Requires `intakeApproved: true` + all 4 intake outputs |
-| `/api/projects/:id/approve/brief` | POST | Requires `managerBrief` exists |
-| `/api/projects/:id/brief` | PUT | Partial update to editable brief |
+### Command — npm.cmd run validate:crud
+
+- Result: PASS — 11/11 tests pass
+
+### Command — node test/phase6-validation.mjs
+
+- Result: **PASS — 12/12 pre-Gemini assertions pass**
+- Gemini-dependent revision tests skipped (no GEMINI_API_KEY in .env)
+
+## Previous Phases
+
+Phase 5 Fix Round 3, Phase 4, Phase 3 — all documented above in earlier entries.

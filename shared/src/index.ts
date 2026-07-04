@@ -17,6 +17,12 @@ export type IntakeStage = z.infer<typeof IntakeStage>;
 export const BriefStage = z.enum(['pending', 'generated', 'review', 'approved']);
 export type BriefStage = z.infer<typeof BriefStage>;
 
+export const CreatorStage = z.enum(['pending', 'generated', 'review', 'approved']);
+export type CreatorStage = z.infer<typeof CreatorStage>;
+
+export const SpecialistsStage = z.enum(['pending', 'generated', 'review']);
+export type SpecialistsStage = z.infer<typeof SpecialistsStage>;
+
 // ── UploadedFile ──
 export const UploadedFileSchema = z.object({
   id: z.string(),
@@ -113,7 +119,96 @@ export const ManagerBriefSchema = z.object({
 });
 export type ManagerBrief = z.infer<typeof ManagerBriefSchema>;
 
-// ── Full Intake/Brief State (stored as JSON on project) ──
+// ── Phase 5: Creator & Specialists ──
+
+export const CreatorProductionPlanSchema = z.object({
+  campaign_title: z.string(),
+  production_strategy: z.string(),
+  content_pillar_breakdown: z.array(
+    z.object({
+      pillar: z.string(),
+      objective: z.string(),
+      format_suggestions: z.array(z.string()),
+      estimated_volume: z.string(),
+    })
+  ),
+  channel_allocation: z.array(
+    z.object({
+      channel: z.string(),
+      content_types: z.array(z.string()),
+      posting_cadence: z.string(),
+      kpi: z.string(),
+    })
+  ),
+  timeline_phases: z.array(
+    z.object({
+      phase: z.string(),
+      duration: z.string(),
+      key_activities: z.array(z.string()),
+    })
+  ),
+  asset_checklist: z.array(z.string()),
+  team_roles_needed: z.array(z.string()),
+  approval_gates: z.array(z.string()),
+  summary: z.string(),
+});
+export type CreatorProductionPlan = z.infer<typeof CreatorProductionPlanSchema>;
+
+export const TextContentOutputSchema = z.object({
+  model: z.string().optional(),
+  generatedAt: z.string().optional(),
+  headlines: z.array(z.string()),
+  social_captions: z.array(z.string()),
+  ad_copy: z.array(z.string()),
+  email_body: z.array(z.string()),
+  long_form_content: z.array(z.string()),
+  cta_suggestions: z.array(z.string()),
+  tone_notes: z.string(),
+  summary: z.string(),
+});
+export type TextContentOutput = z.infer<typeof TextContentOutputSchema>;
+
+export const ImageryCreativeOutputSchema = z.object({
+  model: z.string().optional(),
+  generatedAt: z.string().optional(),
+  visual_concept: z.string(),
+  color_palette_suggestions: z.array(z.string()),
+  image_prompts: z.array(
+    z.object({
+      format: z.string(),
+      scene_description: z.string(),
+      prompt: z.string(),
+      suggested_alt_text: z.string(),
+    })
+  ),
+  typography_suggestions: z.array(z.string()),
+  layout_ideas: z.array(z.string()),
+  summary: z.string(),
+});
+export type ImageryCreativeOutput = z.infer<typeof ImageryCreativeOutputSchema>;
+
+export const MarketResearchOutputSchema = z.object({
+  model: z.string().optional(),
+  generatedAt: z.string().optional(),
+  target_audience_insights: z.array(z.string()),
+  competitor_analysis: z.array(z.string()),
+  market_trends: z.array(z.string()),
+  channel_recommendations: z.array(z.string()),
+  benchmark_data: z.array(z.string()),
+  risk_factors: z.array(z.string()),
+  opportunities: z.array(z.string()),
+  summary: z.string(),
+});
+export type MarketResearchOutput = z.infer<typeof MarketResearchOutputSchema>;
+
+export const SpecialistOutputsSchema = z.object({
+  textContent: TextContentOutputSchema.nullable().default(null),
+  imageryCreative: ImageryCreativeOutputSchema.nullable().default(null),
+  marketResearch: MarketResearchOutputSchema.nullable().default(null),
+});
+export type SpecialistOutputs = z.infer<typeof SpecialistOutputsSchema>;
+
+// ── Full Intake/Brief/Creator/Specialists State ──
 export const IntakeDataSchema = z.object({
   meetingNotesText: z.string().default(''),
   brandGuideText: z.string().default(''),
@@ -132,6 +227,14 @@ export const IntakeDataSchema = z.object({
   editableBrief: ManagerBriefSchema.nullable().default(null),
   briefApproved: z.boolean().default(false),
   briefApprovedAt: z.string().nullable().default(null),
+  // Creator
+  creatorStage: CreatorStage.default('pending'),
+  creatorPlan: CreatorProductionPlanSchema.nullable().default(null),
+  editableCreatorPlan: CreatorProductionPlanSchema.nullable().default(null),
+  // Specialists
+  specialistsStage: SpecialistsStage.default('pending'),
+  specialistOutputs: SpecialistOutputsSchema.nullable().default(null),
+  editableSpecialistOutputs: SpecialistOutputsSchema.nullable().default(null),
 });
 export type IntakeData = z.infer<typeof IntakeDataSchema>;
 
@@ -160,6 +263,83 @@ export const UpdateProjectInputSchema = z.object({
   intake: IntakeDataSchema.partial().optional(),
 });
 export type UpdateProjectInput = z.infer<typeof UpdateProjectInputSchema>;
+
+// ── Phase 6: Feedback & Revision ──
+
+export const FeedbackTargetSection = z.enum([
+  'brief_strategy',
+  'creator_plan',
+  'text_content',
+  'imagery_creative',
+  'market_research',
+]);
+export type FeedbackTargetSection = z.infer<typeof FeedbackTargetSection>;
+
+export const FeedbackItemSchema = z.object({
+  id: z.string(),
+  targetSection: FeedbackTargetSection,
+  feedback: z.string(),
+  createdAt: z.string(),
+});
+export type FeedbackItem = z.infer<typeof FeedbackItemSchema>;
+
+export const RevisionDecisionSchema = z.object({
+  id: z.string(),
+  targetSection: FeedbackTargetSection,
+  targetAgent: z.enum(['manager', 'creator', 'text-content', 'imagery-creative', 'market-research']),
+  reason: z.string(),
+  strategyChanged: z.boolean(),
+  briefReapprovalRequired: z.boolean(),
+  invalidatedSpecialists: z.boolean().default(false),
+  createdAt: z.string(),
+  completedAt: z.string().nullable().default(null),
+});
+export type RevisionDecision = z.infer<typeof RevisionDecisionSchema>;
+
+export const RevisionStage = z.enum(['pending', 'in_progress', 'completed']);
+export type RevisionStage = z.infer<typeof RevisionStage>;
+
+// ── Phase 7: Final Assembly & Export ──
+
+export const FinalAssemblyStage = z.enum(['pending', 'generated']);
+export type FinalAssemblyStage = z.infer<typeof FinalAssemblyStage>;
+
+export const FinalAssemblySchema = z.object({
+  generatedAt: z.string(),
+  campaignTitle: z.string(),
+  client: z.string(),
+  intakeSummary: z.string(),
+  campaignObjective: z.string(),
+  targetAudience: z.string(),
+  keyMessages: z.array(z.string()),
+  contentPillars: z.array(z.string()),
+  recommendedChannels: z.array(z.string()),
+  productionStrategy: z.string(),
+  assetChecklist: z.array(z.string()),
+  headlines: z.array(z.string()),
+  adCopy: z.array(z.string()),
+  ctaSuggestions: z.array(z.string()),
+  visualConcept: z.string(),
+  imagePrompts: z.array(z.object({
+    format: z.string(),
+    prompt: z.string(),
+  })),
+  audienceInsights: z.array(z.string()),
+  competitorAnalysis: z.array(z.string()),
+  risks: z.array(z.string()),
+  opportunities: z.array(z.string()),
+  feedbackCount: z.number(),
+  revisionCount: z.number(),
+  summary: z.string(),
+});
+export type FinalAssembly = z.infer<typeof FinalAssemblySchema>;
+
+export const ExportArtifactSchema = z.object({
+  format: z.enum(['json', 'markdown', 'html']),
+  content: z.string(),
+  generatedAt: z.string(),
+});
+export type ExportArtifact = z.infer<typeof ExportArtifactSchema>;
 
 // ── API Response wrappers ──
 export const ApiErrorSchema = z.object({
