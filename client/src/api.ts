@@ -23,18 +23,42 @@ export interface Project {
   updatedAt: string;
 }
 
+export interface ManagerBrief {
+  campaign_title: string;
+  client: string;
+  campaign_objective: string;
+  business_problem: string;
+  customer_insight: string;
+  target_audience: string;
+  campaign_proposition: string;
+  key_messages: string[];
+  content_pillars: string[];
+  recommended_channels: string[];
+  asset_requirements: string[];
+  brand_rules_to_follow: string[];
+  compliance_flags: string[];
+  missing_information: string[];
+  approval_checklist: string[];
+  campaign_brief: string;
+}
+
 export interface IntakeData {
   meetingNotesText: string;
   brandGuideText: string;
   projectNotes: string;
   stage: string;
-  meetingNotesIntake: Record<string, string> | null;
-  brandGuideIntake: Record<string, string> | null;
-  assetReview: { assets: Record<string, string>[]; missing_assets: string; overall_asset_summary: string } | null;
-  intakeSummary: Record<string, string> | null;
+  meetingNotesIntake: Record<string, unknown> | null;
+  brandGuideIntake: Record<string, unknown> | null;
+  assetReview: Record<string, unknown> | null;
+  intakeSummary: Record<string, unknown> | null;
   humanCheckApproved: boolean;
   intakeApproved: boolean;
   intakeApprovedAt: string | null;
+  briefStage: string;
+  managerBrief: ManagerBrief | null;
+  editableBrief: ManagerBrief | null;
+  briefApproved: boolean;
+  briefApprovedAt: string | null;
 }
 
 export interface UploadedFile {
@@ -110,4 +134,19 @@ export function runIntake(projectId: string): Promise<{ data: Record<string, unk
 
 export function approveIntake(projectId: string): Promise<{ data: { intakeApproved: boolean } }> {
   return request(`/projects/${projectId}/approve/intake`, { method: 'POST' });
+}
+
+export function runManagerBrief(projectId: string): Promise<{ data: ManagerBrief }> {
+  return request(`/projects/${projectId}/agents/run-manager`, { method: 'POST' });
+}
+
+export function approveBrief(projectId: string): Promise<{ data: { briefApproved: boolean } }> {
+  return request(`/projects/${projectId}/approve/brief`, { method: 'POST' });
+}
+
+export function updateEditableBrief(projectId: string, brief: Partial<ManagerBrief>): Promise<{ data: ManagerBrief }> {
+  return request(`/projects/${projectId}/brief`, {
+    method: 'PUT',
+    body: JSON.stringify(brief),
+  });
 }

@@ -10,9 +10,12 @@ export const ProjectStatus = z.enum([
 ]);
 export type ProjectStatus = z.infer<typeof ProjectStatus>;
 
-// ── Intake Stage ──
+// ── Workflow Stages ──
 export const IntakeStage = z.enum(['setup', 'human-check', 'intake-review', 'approved']);
 export type IntakeStage = z.infer<typeof IntakeStage>;
+
+export const BriefStage = z.enum(['pending', 'generated', 'review', 'approved']);
+export type BriefStage = z.infer<typeof BriefStage>;
 
 // ── UploadedFile ──
 export const UploadedFileSchema = z.object({
@@ -89,7 +92,28 @@ export const IntakeSummarySchema = z.object({
 });
 export type IntakeSummary = z.infer<typeof IntakeSummarySchema>;
 
-// ── Full Intake State (stored as JSON on project) ──
+// ── Manager Brief ──
+export const ManagerBriefSchema = z.object({
+  campaign_title: z.string(),
+  client: z.string(),
+  campaign_objective: z.string(),
+  business_problem: z.string(),
+  customer_insight: z.string(),
+  target_audience: z.string(),
+  campaign_proposition: z.string(),
+  key_messages: z.array(z.string()),
+  content_pillars: z.array(z.string()),
+  recommended_channels: z.array(z.string()),
+  asset_requirements: z.array(z.string()),
+  brand_rules_to_follow: z.array(z.string()),
+  compliance_flags: z.array(z.string()),
+  missing_information: z.array(z.string()),
+  approval_checklist: z.array(z.string()),
+  campaign_brief: z.string(),
+});
+export type ManagerBrief = z.infer<typeof ManagerBriefSchema>;
+
+// ── Full Intake/Brief State (stored as JSON on project) ──
 export const IntakeDataSchema = z.object({
   meetingNotesText: z.string().default(''),
   brandGuideText: z.string().default(''),
@@ -102,10 +126,16 @@ export const IntakeDataSchema = z.object({
   humanCheckApproved: z.boolean().default(false),
   intakeApproved: z.boolean().default(false),
   intakeApprovedAt: z.string().nullable().default(null),
+  // Manager Brief
+  briefStage: BriefStage.default('pending'),
+  managerBrief: ManagerBriefSchema.nullable().default(null),
+  editableBrief: ManagerBriefSchema.nullable().default(null),
+  briefApproved: z.boolean().default(false),
+  briefApprovedAt: z.string().nullable().default(null),
 });
 export type IntakeData = z.infer<typeof IntakeDataSchema>;
 
-// ── Project (extended with intake) ──
+// ── Project (extended) ──
 export const ProjectSchema = z.object({
   id: z.string(),
   name: z.string().min(1).max(200),

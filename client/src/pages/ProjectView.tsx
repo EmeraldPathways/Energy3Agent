@@ -9,9 +9,12 @@ import {
   approveHumanCheck,
   runIntake,
   approveIntake,
+  runManagerBrief,
+  approveBrief,
+  updateEditableBrief,
   type Project,
   type UploadedFile,
-  type IntakeData,
+  type ManagerBrief,
 } from '../api.js';
 
 export default function ProjectView() {
@@ -21,7 +24,7 @@ export default function ProjectView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [editBrief, setEditBrief] = useState<ManagerBrief | null>(null);
 
   const fetchProject = useCallback(async () => {
     if (!id) return;
@@ -41,16 +44,13 @@ export default function ProjectView() {
     fetchProject();
   }, [fetchProject]);
 
-  async function handleTextSave(field: keyof IntakeData, value: string) {
+  async function handleTextSave(field: string, value: string) {
     if (!id) return;
-    setSaving(true);
     try {
       const updated = await updateIntake(id, { [field]: value });
       setProject(prev => prev ? { ...prev, intake: updated.data } : prev);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Save failed');
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -112,15 +112,50 @@ export default function ProjectView() {
     }
   }
 
+  async function handleRunManager() {
+    if (!id) return;
+    setRunning(true);
+    try {
+      await runManagerBrief(id);
+      await fetchProject();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Manager brief failed');
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  async function handleSaveBrief() {
+    if (!id || !editBrief) return;
+    const { campaign_title, campaign_brief, ...rest } = editBrief;
+    try {
+      await updateEditableBrief(id, editBrief);
+      await fetchProject();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Save brief failed');
+    }
+  }
+
+  async function handleApproveBrief() {
+    if (!id) return;
+    try {
+      await approveBrief(id);
+      await fetchProject();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Brief approval failed');
+    }
+  }
+
   if (loading) return <p className="status-msg">Loading project...</p>;
   if (error) return <div className="error-banner">{error}</div>;
   if (!project) return <p className="status-msg">Project not found.</p>;
 
   const { intake } = project;
-  const isSetup = intake.stage === 'setup' || intake.stage === 'human-check' || !intake.humanCheckApproved;
-  const isReview = intake.humanCheckApproved;
   const hasOutputs = !!intake.meetingNotesIntake;
   const isIntakeApproved = intake.intakeApproved;
+  const hasBrief = !!intake.managerBrief;
+  const isBriefApproved = intake.briefApproved;
+  const brief = editBrief ?? intake.editableBrief ?? intake.managerBrief;
 
   return (
     <div className="project-view">
@@ -128,151 +163,164 @@ export default function ProjectView() {
       <h1>{project.name}</h1>
       <dl className="project-meta">
         <dt>Status</dt><dd>{project.status}</dd>
-        <dt>Stage</dt><dd>{intake.stage || 'setup'}</dd>
+        <dt>Intake Stage</dt><dd>{intake.stage || 'setup'}</dd>
+        <dt>Brief Stage</dt><dd>{intake.briefStage || 'pending'}</dd>
         <dt>Description</dt><dd>{project.description || 'No description'}</dd>
         <dt>Updated</dt><dd>{new Date(project.updatedAt).toLocaleString()}</dd>
       </dl>
 
-      {/* ── Setup: text areas + file uploads ── */}
-      {isSetup && (
-        <section className="intake-section">
-          <h2>Project Setup</h2>
-          <h3>Meeting Notes</h3>
-          <textarea
-            rows={6}
-            value={intake.meetingNotesText}
-            onChange={e => setProject({ ...project, intake: { ...intake, meetingNotesText: e.target.value } })}
-            onBlur={() => handleTextSave('meetingNotesText', intake.meetingNotesText)}
-            placeholder="Paste meeting notes or upload a file..."
-          />
-          <div className="upload-row">
-            <input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'meetingNotes')} />
-          </div>
+      {/* ── Phase 3: Intake (Setup, Human Check, Run, Review) ── */}
+      {!isIntakeApproved && (
+        <>
+          {intake.stage !== 'intake-review' && !intake.humanCheckApproved && (
+            <section className="intake-section">
+              <h2>Project Setup</h2>
+              <h3>Meeting Notes</h3>
+              <textarea rows={6} value={intake.meetingNotesText} onChange={e => setProject({ ...project, intake: { ...intake, meetingNotesText: e.target.value } })} onBlur={() => handleTextSave('meetingNotesText', intake.meetingNotesText)} placeholder="Paste meeting notes or upload a file..." />
+              <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'meetingNotes')} /></div>
+              <h3>Brand Guide</h3>
+              <textarea rows={6} value={intake.brandGuideText} onChange={e => setProject({ ...project, intake: { ...intake, brandGuideText: e.target.value } })} onBlur={() => handleTextSave('brandGuideText', intake.brandGuideText)} placeholder="Paste brand guide text or upload a file..." />
+              <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'brandGuide')} /></div>
+            </section>
+          )}
 
-          <h3>Brand Guide</h3>
-          <textarea
-            rows={6}
-            value={intake.brandGuideText}
-            onChange={e => setProject({ ...project, intake: { ...intake, brandGuideText: e.target.value } })}
-            onBlur={() => handleTextSave('brandGuideText', intake.brandGuideText)}
-            placeholder="Paste brand guide text or upload a file..."
-          />
-          <div className="upload-row">
-            <input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'brandGuide')} />
-          </div>
+          {!intake.humanCheckApproved && (
+            <section className="intake-section">
+              <h2>Human Check</h2>
+              {uploads.length === 0 && <p className="status-msg">No files uploaded yet.</p>}
+              {uploads.length > 0 && (
+                <ul className="upload-list">{uploads.map(u => <li key={u.id}><span>{u.originalName} ({u.category}, {(u.size / 1024).toFixed(1)}KB)</span><button className="btn btn-danger btn-sm" onClick={() => handleDeleteUpload(u.id)}>Delete</button></li>)}</ul>
+              )}
+              <button className="btn btn-primary" onClick={handleHumanCheck}>Confirm & Run Intake Agents</button>
+            </section>
+          )}
 
-          <h3>Image Assets</h3>
-          <div className="upload-row">
-            <label>Logo <input type="file" accept=".png,.jpg,.jpeg,.webp,.svg" onChange={e => handleFileUpload(e, 'logo')} /></label>
-            <label>Product Images <input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg" onChange={e => handleFileUpload(e, 'productImages')} /></label>
-            <label>Campaign Imagery <input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg" onChange={e => handleFileUpload(e, 'campaignImagery')} /></label>
-          </div>
+          {intake.humanCheckApproved && !hasOutputs && (
+            <section className="intake-section">
+              <h2>Run Intake Agents</h2>
+              <button className="btn btn-primary" onClick={handleRunIntake} disabled={running}>{running ? 'Running Agents...' : 'Run Intake Agents'}</button>
+            </section>
+          )}
 
-          <h3>Project Notes</h3>
-          <textarea
-            rows={4}
-            value={intake.projectNotes}
-            onChange={e => setProject({ ...project, intake: { ...intake, projectNotes: e.target.value } })}
-            onBlur={() => handleTextSave('projectNotes', intake.projectNotes)}
-            placeholder="Any additional notes or context..."
-          />
-        </section>
+          {hasOutputs && !isIntakeApproved && (
+            <section className="intake-section">
+              <h2>Intake Review</h2>
+              {intake.meetingNotesIntake && <RenderJsonOutput title="Meeting Notes Intake" data={intake.meetingNotesIntake} />}
+              {intake.brandGuideIntake && <RenderJsonOutput title="Brand Guide Intake" data={intake.brandGuideIntake} />}
+              {intake.assetReview && <RenderJsonOutput title="Asset Review" data={intake.assetReview} />}
+              {intake.intakeSummary && <RenderJsonOutput title="Intake Summary" data={intake.intakeSummary} />}
+              <button className="btn btn-primary" onClick={handleApproveIntake}>Approve Intake Summary</button>
+            </section>
+          )}
+        </>
       )}
 
-      {/* ── Human Check: review uploads before running intake ── */}
-      {!intake.humanCheckApproved && (
+      {/* ── Phase 4: Manager Brief ── */}
+      {isIntakeApproved && (
         <section className="intake-section">
-          <h2>Human Check</h2>
-          <p>Review the uploaded files before running the intake agents.</p>
-          {uploads.length === 0 && <p className="status-msg">No files uploaded yet.</p>}
-          {uploads.length > 0 && (
-            <ul className="upload-list">
-              {uploads.map(u => (
-                <li key={u.id}>
-                  <span>{u.originalName} ({u.category}, {(u.size / 1024).toFixed(1)}KB)</span>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDeleteUpload(u.id)}>Delete</button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <button className="btn btn-primary" onClick={handleHumanCheck}>Confirm & Run Intake Agents</button>
-        </section>
-      )}
-
-      {/* ── Run Intake: shown after human check, before outputs exist ── */}
-      {intake.humanCheckApproved && !hasOutputs && (
-        <section className="intake-section">
-          <h2>Run Intake Agents</h2>
-          <p>Human check approved. Run the intake agents to analyze your inputs.</p>
-          <button className="btn btn-primary" onClick={handleRunIntake} disabled={running}>
-            {running ? 'Running Agents...' : 'Run Intake Agents'}
-          </button>
-        </section>
-      )}
-
-      {/* ── Intake Review: outputs + approve ── */}
-      {hasOutputs && (
-        <section className="intake-section">
-          <h2>Intake Review</h2>
-          {intake.meetingNotesIntake && (
-            <RenderIntakeOutput title="Meeting Notes Intake" data={intake.meetingNotesIntake as Record<string, unknown>} />
-          )}
-          {intake.brandGuideIntake && (
-            <RenderIntakeOutput title="Brand Guide Intake" data={intake.brandGuideIntake as Record<string, unknown>} />
-          )}
-          {intake.assetReview && (
-            <RenderIntakeOutput title="Asset Review" data={intake.assetReview as Record<string, unknown>} />
-          )}
-          {intake.intakeSummary && (
-            <RenderIntakeOutput title="Intake Summary" data={intake.intakeSummary as Record<string, unknown>} />
-          )}
-          <div className="button-group">
-            {!isIntakeApproved && (
-              <button className="btn btn-primary" onClick={handleApproveIntake}>
-                Approve Intake Summary
+          <h2>Campaign Brief</h2>
+          {!hasBrief && (
+            <div>
+              <p>Intake approved. Generate the campaign brief to proceed.</p>
+              <button className="btn btn-primary" onClick={handleRunManager} disabled={running}>
+                {running ? 'Generating...' : 'Generate Manager Brief'}
               </button>
-            )}
-            {isIntakeApproved && (
-              <p className="status-msg">✅ Intake approved — ready for next phase.</p>
-            )}
-          </div>
+            </div>
+          )}
+          {hasBrief && brief && (
+            <div>
+              {!editBrief && (
+                <div>
+                  <RenderBriefOutput brief={intake.editableBrief ?? intake.managerBrief!} />
+                  <div className="button-group">
+                    <button className="btn btn-primary" onClick={() => setEditBrief({ ...(intake.editableBrief ?? intake.managerBrief!) })}>Edit Brief</button>
+                    {!isBriefApproved && <button className="btn btn-primary" onClick={handleApproveBrief}>Approve Campaign Brief</button>}
+                  </div>
+                </div>
+              )}
+              {editBrief && (
+                <div>
+                  <BriefEditor brief={editBrief} onChange={setEditBrief} />
+                  <div className="button-group">
+                    <button className="btn btn-primary" onClick={handleSaveBrief}>Save Edits</button>
+                    <button className="btn" onClick={() => setEditBrief(null)}>Cancel</button>
+                    {!isBriefApproved && <button className="btn btn-primary" onClick={handleApproveBrief}>Approve Campaign Brief</button>}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {isBriefApproved && (
+            <p className="status-msg">✅ Campaign Brief approved — ready for Creator stage.</p>
+          )}
         </section>
       )}
     </div>
   );
 }
 
-function RenderIntakeOutput({ title, data }: { title: string; data: Record<string, unknown> | null }) {
-  if (!data) return null;
+function RenderJsonOutput({ title, data }: { title: string; data: Record<string, unknown> }) {
   return (
     <div className="intake-output">
       <h3>{title}</h3>
-      {Array.isArray((data as { assets?: unknown[] }).assets) ? (
-        <div>
-          <dl>
-            {Object.entries(data).filter(([k]) => k !== 'assets').map(([k, v]) => (
-              <div key={k}><dt>{k.replace(/_/g, ' ')}</dt><dd>{Array.isArray(v) ? (v as string[]).join(', ') : String(v)}</dd></div>
-            ))}
-          </dl>
-          <h4>Assets</h4>
-          {((data as { assets: Record<string, unknown>[] }).assets).map((a, i) => (
-            <dl key={i} className="asset-dl">
-              {Object.entries(a).map(([k, v]) => (
-                <div key={k}><dt>{k.replace(/_/g, ' ')}</dt><dd>{Array.isArray(v) ? (v as string[]).join(', ') : String(v)}</dd></div>
-              ))}
-            </dl>
-          ))}
-        </div>
-      ) : (
-        <dl>
-          {Object.entries(data).map(([key, value]) => (
-            <div key={key}>
-              <dt>{key.replace(/_/g, ' ')}</dt>
-              <dd>{Array.isArray(value) ? (value as string[]).join(', ') : String(value)}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      <dl>
+        {Object.entries(data).map(([k, v]) => (
+          <div key={k}><dt>{k.replace(/_/g, ' ')}</dt><dd>{Array.isArray(v) ? (v as string[]).join(', ') : String(v)}</dd></div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function RenderBriefOutput({ brief }: { brief: ManagerBrief }) {
+  return (
+    <div className="intake-output">
+      <h3>{brief.campaign_title}</h3>
+      <p><strong>Client:</strong> {brief.client}</p>
+      <p><strong>Objective:</strong> {brief.campaign_objective}</p>
+      <p><strong>Business Problem:</strong> {brief.business_problem}</p>
+      <p><strong>Customer Insight:</strong> {brief.customer_insight}</p>
+      <p><strong>Target Audience:</strong> {brief.target_audience}</p>
+      <p><strong>Proposition:</strong> {brief.campaign_proposition}</p>
+
+      <ArraySection title="Key Messages" items={brief.key_messages} />
+      <ArraySection title="Content Pillars" items={brief.content_pillars} />
+      <ArraySection title="Recommended Channels" items={brief.recommended_channels} />
+      <ArraySection title="Asset Requirements" items={brief.asset_requirements} />
+      <ArraySection title="Brand Rules to Follow" items={brief.brand_rules_to_follow} />
+      <ArraySection title="Compliance Flags" items={brief.compliance_flags} highlight />
+      <ArraySection title="Missing Information" items={brief.missing_information} highlight />
+      <ArraySection title="Approval Checklist" items={brief.approval_checklist} />
+
+      <h4>Campaign Brief</h4>
+      <p style={{ whiteSpace: 'pre-wrap' }}>{brief.campaign_brief}</p>
+    </div>
+  );
+}
+
+function ArraySection({ title, items, highlight }: { title: string; items: string[]; highlight?: boolean }) {
+  if (!items || items.length === 0) return null;
+  return (
+    <div style={{ marginBottom: '0.75rem' }}>
+      <strong>{title}:</strong>
+      <ul className={highlight ? 'highlight-list' : ''}>
+        {items.map((item, i) => <li key={i} style={highlight ? { color: '#b91c1c' } : {}}>{item}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function BriefEditor({ brief, onChange }: { brief: ManagerBrief; onChange: (b: ManagerBrief) => void }) {
+  return (
+    <div>
+      <label>Campaign Title<br /><input type="text" value={brief.campaign_title} onChange={e => onChange({ ...brief, campaign_title: e.target.value })} /></label>
+      <label>Campaign Brief (full)<br /><textarea rows={10} value={brief.campaign_brief} onChange={e => onChange({ ...brief, campaign_brief: e.target.value })} /></label>
+      {(['key_messages', 'content_pillars', 'recommended_channels', 'asset_requirements', 'compliance_flags', 'missing_information', 'approval_checklist'] as const).map(field => (
+        <label key={field}>{field.replace(/_/g, ' ')}<br /><textarea rows={4} value={brief[field].join('\n')} onChange={e => onChange({ ...brief, [field]: e.target.value.split('\n').filter(Boolean) })} /></label>
+      ))}
+      {(['campaign_objective', 'business_problem', 'customer_insight', 'target_audience', 'campaign_proposition', 'client'] as const).map(field => (
+        <label key={field}>{field.replace(/_/g, ' ')}<br /><input type="text" value={brief[field]} onChange={e => onChange({ ...brief, [field]: e.target.value })} /></label>
+      ))}
     </div>
   );
 }
