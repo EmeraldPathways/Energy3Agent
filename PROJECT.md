@@ -56,18 +56,22 @@
   - backend-only Gemini client service
   - smoke-test route at `/api/gemini-smoke`
 - Phase 3 complete:
-  - intake schemas for meeting notes, brand guide, asset review, and intake summary
+  - intake schemas for meeting notes, project brief, brand guide, asset review, and intake summary
+  - three distinct text/file inputs in Project Setup: Meeting Notes, Project Brief, Brand Guide
+  - Project Brief supports paste & `.txt/.pdf/.docx` upload, stored in `projectBriefText` field
+  - intake agent combines Meeting Notes + Project Brief into strategic review; Brand Guide remains separate
   - upload pipeline for `.txt`, `.pdf`, `.docx`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`
   - intake routes for uploads, human check, run-intake, approve-intake
-  - ProjectView supports setup, human check, run intake, and intake review flow
+  - ProjectView supports setup (3-column image asset uploads), human check, agents working animation, run intake, and intake review flow with asset thumbnails
 - Phase 4 complete:
   - Manager Brief schema and intake JSON storage fields are implemented
   - backend routes support run-manager, approve-brief, and editable brief save flow
-  - ProjectView supports brief generation, review, editing, save, and approval
+  - ProjectView supports brief generation with agents working animation, review, editing, save, and approval
   - prompt set is consolidated under `server/src/agents/prompts/*.ts` with current and future agent prompt modules
 - Phase 5 complete:
   - creator plan and specialist outputs persist in project state
-  - imagery prompts can generate stored concept images and surface them in the project UI
+  - imagery prompts can generate stored concept images and surface them in the project UI with larger thumbnails (280px, flex-fill layout)
+  - agents working animation on Creator and Specialists stages
 - Phase 6 complete:
   - feedback capture and selective revision flow are implemented
   - imagery revisions can refresh generated concept images alongside updated imagery output
