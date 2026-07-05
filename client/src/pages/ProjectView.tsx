@@ -597,6 +597,19 @@ export default function ProjectView() {
                       <dd>{(intake.specialistOutputs as { imageryCreative?: { visual_concept?: string } })?.imageryCreative?.visual_concept || '-'}</dd>
                     </dl>
                     <ArraySection title="Image Prompts" items={((intake.specialistOutputs as { imageryCreative?: { image_prompts?: { format: string; prompt: string }[] } })?.imageryCreative?.image_prompts || []).map((p: { format: string; prompt: string }) => `${p.format}: ${p.prompt}`)} />
+                    {intake.conceptImages && (intake.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[]).length > 0 && (
+                      <div className="concept-images-section">
+                        <h4>Generated Concept Images</h4>
+                        <div className="concept-images-grid">
+                          {(intake.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[]).map((ci) => (
+                            <div key={ci.id} className="concept-image-card">
+                              <img src={`/${ci.imagePath}`} alt={ci.label} className="concept-image-thumb" loading="lazy" />
+                              <span className="concept-image-label">{ci.label}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="output-block">

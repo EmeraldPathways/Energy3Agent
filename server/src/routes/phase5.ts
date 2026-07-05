@@ -6,6 +6,7 @@ import {
   runTextContent,
   runImageryCreative,
   runMarketResearch,
+  generateConceptImages,
 } from '../agents/runPhase5.js';
 
 const router = Router();
@@ -96,6 +97,13 @@ router.post('/:id/agents/run-specialists', async (req: Request, res: Response) =
       runImageryCreative(intake.managerBrief, intake.creatorPlan),
       runMarketResearch(intake.managerBrief, intake.creatorPlan),
     ]);
+
+    // Generate concept images from imagery creative output
+    const conceptImages = await generateConceptImages(imageryCreative, req.params.id as string);
+    if (conceptImages.length > 0) {
+      const existing = Array.isArray(intake.conceptImages) ? intake.conceptImages : [];
+      intake.conceptImages = [...existing, ...conceptImages];
+    }
 
     const combined = { textContent, imageryCreative, marketResearch };
     SpecialistOutputsSchema.parse(combined);

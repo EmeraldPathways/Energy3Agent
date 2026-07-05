@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { FinalAssemblySchema } from '@ai-campaign/shared';
-import { getDb } from '../db.js';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
+import { getDb, getConceptImagesDir } from '../db.js';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun } from 'docx';
+import fs from 'node:fs';
+import path from 'node:path';
 
 type HeadingLevelType = (typeof HeadingLevel)[keyof typeof HeadingLevel];
 
@@ -247,7 +249,29 @@ router.get('/:id/export/docx', async (req: Request, res: Response) => {
     if (conceptImages.length > 0) {
       children.push(heading('Generated Concept Images', HeadingLevel.HEADING_2));
       for (const ci of conceptImages) {
-        children.push(bullet(`${ci.label} (${ci.imagePath}) — ${ci.prompt}`));
+        children.push(bullet(`${ci.label} — ${ci.prompt}`));
+        const imgDir = getConceptImagesDir();
+        const relativePath = ci.imagePath.replace(/^generated-images\//, '');
+        const absPath = path.join(imgDir, relativePath);
+        if (fs.existsSync(absPath)) {
+          try {
+            const imgBuffer = fs.readFileSync(absPath);
+            children.push(
+              new Paragraph({
+                spacing: { after: 200 },
+                children: [
+                  new ImageRun({
+                    data: imgBuffer,
+                    transformation: { width: 300, height: 300 },
+                    type: 'png',
+                  }),
+                ],
+              }),
+            );
+          } catch {
+            children.push(bullet(`(Image not embeddable: ${ci.imagePath})`));
+          }
+        }
       }
     }
 
@@ -383,16 +407,29 @@ router.get('/:id/export/pdf', async (req: Request, res: Response) => {
 
     addHeading('Image Prompts');
     for (const p of imgPrompts) {
-      doc.font('Helvetica-Bold').text(`  ${p.format}:`);
-      doc.font('Helvetica').text(`    ${p.prompt}`);
+      doc.fontSize(11).font('Helvetica-Bold').text(`  ${p.format}:`);
+      doc.fontSize(11).font('Helvetica').text(`    ${p.prompt}`);
     }
 
     if (conceptImages.length > 0) {
       addHeading('Generated Concept Images');
+      const imgDir = getConceptImagesDir();
       for (const ci of conceptImages) {
-        doc.font('Helvetica-Bold').text(`  ${ci.label}`);
-        doc.font('Helvetica').text(`    Path: ${ci.imagePath}`);
-        doc.font('Helvetica').text(`    Prompt: ${ci.prompt}`);
+        doc.fontSize(11).font('Helvetica-Bold').text(`  ${ci.label}`);
+        doc.fontSize(11).font('Helvetica').text(`    Prompt: ${ci.prompt}`);
+        const relativePath = ci.imagePath.replace(/^generated-images\//, '');
+        const absPath = path.join(imgDir, relativePath);
+        if (fs.existsSync(absPath)) {
+          try {
+            doc.moveDown(0.3);
+            doc.image(absPath, { width: 300 });
+            doc.moveDown(0.3);
+          } catch {
+            doc.fontSize(11).font('Helvetica').text(`    (Image file: ${ci.imagePath} — could not embed)`);
+          }
+        } else {
+          doc.fontSize(11).font('Helvetica').text(`    (Image not found: ${ci.imagePath})`);
+        }
         doc.moveDown(0.2);
       }
     }

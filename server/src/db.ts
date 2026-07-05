@@ -6,12 +6,16 @@ import fs from 'node:fs';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.resolve(__dirname, '../../data');
 const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+const GENERATED_IMAGES_DIR = path.join(DATA_DIR, 'generated-images');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+if (!fs.existsSync(GENERATED_IMAGES_DIR)) {
+  fs.mkdirSync(GENERATED_IMAGES_DIR, { recursive: true });
 }
 
 const DB_PATH = path.join(DATA_DIR, 'campaign.db');
@@ -30,6 +34,14 @@ export function getDb(): Database.Database {
 
 export function getUploadsDir(): string {
   return UPLOADS_DIR;
+}
+
+export function getConceptImagesDir(): string {
+  return GENERATED_IMAGES_DIR;
+}
+
+export function getGeneratedImagesDir(): string {
+  return GENERATED_IMAGES_DIR;
 }
 
 function migrate(db: Database.Database): void {

@@ -88,3 +88,69 @@ export async function generateWithGoogleSearch(params: GoogleSearchParams): Prom
     return text;
   });
 }
+
+export interface GenerateImageParams {
+  prompt: string;
+  model?: string;
+}
+
+export async function generateImage(params: GenerateImageParams): Promise<Buffer> {
+  const genai = getClient();
+  const model = params.model ?? config.gemini.imageModel();
+
+  const isImagenModel = model.startsWith('imagen');
+
+  return withRetry(async () => {
+    if (isImagenModel) {
+      const apiKey = config.gemini.apiKey();
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:predict?key=${apiKey}`;
+      const fetchBody = JSON.stringify({
+        instances: [{ prompt: params.prompt }],
+      });
+
+      const httpRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: fetchBody,
+      });
+
+      if (!httpRes.ok) {
+        const errBody = await httpRes.text();
+        throw new Error(`Imagen predict failed (${httpRes.status}): ${errBody}`);
+      }
+
+      const json = await httpRes.json() as { predictions?: { mimeType?: string; bytesBase64Encoded?: string }[] };
+      if (!json.predictions?.length) {
+        throw new Error('Imagen returned no predictions');
+      }
+
+      const pred = json.predictions[0];
+      if (pred.bytesBase64Encoded) {
+        return Buffer.from(pred.bytesBase64Encoded, 'base64');
+      }
+
+      throw new Error('Imagen returned no image data');
+    }
+
+    const response = await genai.models.generateContent({
+      model,
+      contents: { parts: [{ text: params.prompt }] },
+      config: {
+        responseModalities: ['IMAGE', 'TEXT'],
+      },
+    });
+
+    if (!response.candidates?.length) {
+      throw new Error('Gemini image generation returned no candidates');
+    }
+
+    const parts = response.candidates[0]?.content?.parts ?? [];
+    for (const part of parts) {
+      if (part.inlineData?.data) {
+        return Buffer.from(part.inlineData.data, 'base64');
+      }
+    }
+
+    throw new Error('Gemini image generation returned no image data');
+  });
+}

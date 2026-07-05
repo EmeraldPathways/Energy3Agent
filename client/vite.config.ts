@@ -11,6 +11,14 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/generated-images': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/concept-images': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
 });

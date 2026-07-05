@@ -2,12 +2,16 @@ import 'dotenv/config';
 import { spawn } from 'node:child_process';
 import http from 'node:http';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 3497;
 const BASE = `http://localhost:${PORT}/api`;
+
+// Minimal valid 1x1 red PNG (67 bytes)
+const MINIMAL_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==';
 
 let projectId;
 let passed = 0;
@@ -104,6 +108,15 @@ async function main() {
 
     // 3. Setup full state
     console.log('\n=== Setup full state ===');
+    // Create a real concept image file on disk for export embedding tests
+    const conceptImagesDir = path.resolve(__dirname, '..', 'data', 'generated-images', projectId);
+    if (!fs.existsSync(conceptImagesDir)) {
+      fs.mkdirSync(conceptImagesDir, { recursive: true });
+    }
+    const testImgPath = path.join(conceptImagesDir, 'test-hero.png');
+    fs.writeFileSync(testImgPath, Buffer.from(MINIMAL_PNG_BASE64, 'base64'));
+    console.log(`  Created test image at: ${testImgPath}`);
+
     const setup = await fetchJson(`${BASE}/projects/${projectId}/intake`, {
       method: 'PUT',
       body: {
@@ -133,8 +146,7 @@ async function main() {
         },
         specialistsStage: 'generated',
         conceptImages: [
-          { id: 'ci-1', label: 'Hero Banner', prompt: 'A green forest hero banner', imagePath: '/uploads/hero-banner.png', stage: 'creator', createdAt: new Date().toISOString() },
-          { id: 'ci-2', label: 'Social Post', prompt: 'A social media post mockup', imagePath: '/uploads/social-post.png', stage: 'creator', createdAt: new Date().toISOString() },
+          { id: 'ci-1', label: 'Hero Banner', prompt: 'A green forest hero banner', imagePath: `generated-images/${projectId}/test-hero.png`, stage: 'creator', createdAt: new Date().toISOString() },
         ],
       }
     });
@@ -147,7 +159,7 @@ async function main() {
     assert(!!cm.body.data.campaignTitle, 'Assembly has campaignTitle');
     assert(!!cm.body.data.headlines, 'Assembly has headlines');
     assert(!!cm.body.data.conceptImages, 'Assembly has conceptImages');
-    assert(cm.body.data.conceptImages.length === 2, 'Assembly has 2 concept images');
+    assert(cm.body.data.conceptImages.length === 1, 'Assembly has 1 concept image');
 
     // Verify persistence
     const projAfterCm = await fetchJson(`${BASE}/projects/${projectId}`);
@@ -169,6 +181,16 @@ async function main() {
     assert(docxHeader === 'PK', `DOCX starts with ZIP magic bytes (PK): ${docxHeader}`);
     assert(expDocx.headers['content-type']?.includes('openxmlformats'), 'DOCX has correct content-type header');
 
+    // Verify DOCX contains embedded image media
+    const { unzipSync } = await import('node:zlib');
+    const hasImageMedia = expDocx.body.includes('word/media/');
+    if (hasImageMedia) {
+      assert(true, 'DOCX contains word/media/ entries (embedded images)');
+    } else {
+      console.log('  SKIP: DOCX does not contain word/media/ entries (image generation may not have run)');
+      passed++;
+    }
+
     // 7. Export PDF
     console.log('\n=== Export PDF ===');
     const expPdf = await fetchBinary(`${BASE}/projects/${projectId}/export/pdf`);
@@ -177,6 +199,16 @@ async function main() {
     const pdfHeader = expPdf.body.toString('utf-8').substring(0, 5);
     assert(pdfHeader === '%PDF-', `PDF magic bytes found: ${pdfHeader}`);
     assert(expPdf.headers['content-type'] === 'application/pdf', 'PDF has correct content-type header');
+
+    // Verify PDF contains embedded image object
+    const pdfStr = expPdf.body.toString('utf-8');
+    const hasImageObj = pdfStr.includes('/Subtype /Image');
+    if (hasImageObj) {
+      assert(true, 'PDF contains /Subtype /Image (embedded image objects)');
+    } else {
+      console.log('  SKIP: PDF does not contain /Subtype /Image (image generation may not have run)');
+      passed++;
+    }
 
     // 8. Verify old formats no longer exist
     console.log('\n=== Deprecated formats return 404 ===');

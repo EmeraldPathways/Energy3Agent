@@ -63,6 +63,7 @@ export interface IntakeData {
   creatorPlan: unknown;
   specialistsStage: string;
   specialistOutputs: unknown;
+  conceptImages?: { id: string; label: string; prompt: string; imagePath: string }[];
   feedbackItems?: FeedbackItem[];
   revisionDecisions?: RevisionDecision[];
   finalAssemblyStage?: string;

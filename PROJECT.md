@@ -5,7 +5,7 @@
 - Name: AI Marketing Campaign Builder
 - Goal: Build a local-first AI marketing campaign app that turns meeting notes, brand guides, assets, and human feedback into an approval-gated campaign production workflow with exportable outputs.
 - Users: Internal marketing operators or consultants running campaign planning locally on one machine during MVP.
-- Current status: All 8 phases complete. Full workflow from intake to export is implemented, validated, and documented.
+- Current status: All 8 phases complete. Full workflow from intake to export is implemented, validated, and documented, with generated concept images now persisting in project state and carrying through into export output.
 
 ## Stack
 
@@ -65,6 +65,15 @@
   - backend routes support run-manager, approve-brief, and editable brief save flow
   - ProjectView supports brief generation, review, editing, save, and approval
   - prompt set is consolidated under `server/src/agents/prompts/*.ts` with current and future agent prompt modules
+- Phase 5 complete:
+  - creator plan and specialist outputs persist in project state
+  - imagery prompts can generate stored concept images and surface them in the project UI
+- Phase 6 complete:
+  - feedback capture and selective revision flow are implemented
+  - imagery revisions can refresh generated concept images alongside updated imagery output
+- Phase 7 complete:
+  - final assembly includes generated concept images from project state
+  - DOCX and PDF export attempt to embed generated concept image files when present
 
 ## Latest Validation
 
@@ -104,15 +113,15 @@ All phases complete. No active build priorities — project is in maintenance/st
   - Validation: `npm run build`, `node test/phase4-validation.mjs`
 - Phase 5 - Creator And Specialists
   - Status: complete
-  - Outcome: Creator production plan + 3 specialist outputs (Text Content, Imagery Creative, Market Research) with parallel execution and review UI
+  - Outcome: Creator production plan + 3 specialist outputs (Text Content, Imagery Creative, Market Research) with parallel execution, generated concept images, and review UI
   - Validation: `node test/phase5-validation.mjs`
 - Phase 6 - Feedback And Selective Revision
   - Status: complete
-  - Outcome: Target-section feedback capture, deterministic revision routing, untouched output preservation, brief reapproval triggers
+  - Outcome: Target-section feedback capture, deterministic revision routing, untouched output preservation, brief reapproval triggers, and imagery-driven concept image refresh
   - Validation: `node test/phase6-validation.mjs`
 - Phase 7 - Final Assembly And Export
   - Status: complete
-  - Outcome: Final assembly from approved outputs, final approval gate, JSON/Markdown/HTML export with download
+  - Outcome: Final assembly from approved outputs, final approval gate, and DOCX/PDF export with generated concept images embedded when source files exist
   - Validation: `node test/phase7-validation.mjs`
 - Phase 8 - Hardening
   - Status: complete

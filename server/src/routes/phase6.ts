@@ -7,6 +7,7 @@ import {
   runTextContent,
   runImageryCreative,
   runMarketResearch,
+  generateConceptImages,
 } from '../agents/runPhase5.js';
 
 const router = Router();
@@ -198,6 +199,11 @@ router.post('/:id/agents/revise', async (req: Request, res: Response) => {
       } else if (targetSection === 'imagery_creative') {
         const imageryResult = await runImageryCreative(intake.managerBrief, intake.creatorPlan);
         intake.specialistOutputs = { ...so, imageryCreative: imageryResult };
+        // Regenerate concept images from the new imagery creative output
+        const newConceptImages = await generateConceptImages(imageryResult, req.params.id as string);
+        if (newConceptImages.length > 0) {
+          intake.conceptImages = newConceptImages;
+        }
       } else if (targetSection === 'market_research') {
         const researchResult = await runMarketResearch(intake.managerBrief, intake.creatorPlan);
         intake.specialistOutputs = { ...so, marketResearch: researchResult };
