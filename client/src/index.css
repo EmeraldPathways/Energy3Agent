@@ -735,6 +735,129 @@ body {
   font-weight: 600;
 }
 
+/* -- Asset columns (3-col grid for image uploads) -- */
+
+.asset-columns {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.asset-col {
+  min-width: 0;
+}
+
+.asset-col .upload-label {
+  display: block;
+  margin-bottom: 6px;
+}
+
+/* -- Agents working animation -- */
+
+.agents-working-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.agent-working-card {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.agent-working-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 10px 0 4px;
+}
+
+.agent-working-desc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.agent-pulse {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  margin: 0 auto;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+.agent-pulse--delayed-1 {
+  animation-delay: 0.4s;
+}
+
+.agent-pulse--delayed-2 {
+  animation-delay: 0.8s;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.3);
+  }
+}
+
+/* -- Asset review cards -- */
+
+.asset-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.asset-card-item {
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.asset-card-thumb {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: var(--color-bg);
+}
+
+.asset-card-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+  word-break: break-word;
+}
+
+.asset-card-field {
+  font-size: 0.78rem;
+  margin-bottom: 3px;
+  line-height: 1.4;
+}
+
+.asset-card-key {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: capitalize;
+}
+
+.asset-card-val {
+  color: var(--color-text);
+}
+
 /* -- Concept Images -- */
 
 .concept-images-section {
@@ -752,17 +875,18 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   background: var(--color-surface-muted);
   border: 1px solid var(--color-border);
   border-radius: 8px;
-  padding: 8px;
-  max-width: 220px;
+  padding: 10px;
+  flex: 1 1 320px;
+  max-width: 420px;
 }
 
 .concept-image-thumb {
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  height: 280px;
   object-fit: cover;
   border-radius: 4px;
   background: var(--color-bg);

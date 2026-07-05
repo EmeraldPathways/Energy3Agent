@@ -15,7 +15,7 @@ import phase5Router from './routes/phase5.js';
 import phase6Router from './routes/phase6.js';
 import phase7Router from './routes/phase7.js';
 import geminiSmokeRouter from './routes/gemini-smoke.js';
-import { getConceptImagesDir } from './db.js';
+import { getConceptImagesDir, getUploadsDir } from './db.js';
 
 const PORT = process.env.PORT ?? 3001;
 
@@ -36,6 +36,8 @@ app.use('/api/gemini-smoke', geminiSmokeRouter);
 app.use('/generated-images', express.static(getConceptImagesDir()));
 // Legacy route for existing concept-images references
 app.use('/concept-images', express.static(getConceptImagesDir()));
+// Serve uploads so the client can show asset thumbnails
+app.use('/uploads', express.static(getUploadsDir()));
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });

@@ -192,11 +192,13 @@ function IntakeOutputTabs({
   brandGuideIntake,
   assetReview,
   intakeSummary,
+  uploads,
 }: {
   meetingNotesIntake: Record<string, unknown> | null;
   brandGuideIntake: Record<string, unknown> | null;
   assetReview: Record<string, unknown> | null;
   intakeSummary: Record<string, unknown> | null;
+  uploads: UploadedFile[];
 }) {
   const tabs = [
     { key: 'meeting', label: 'Meeting Notes', data: meetingNotesIntake },
@@ -210,6 +212,12 @@ function IntakeOutputTabs({
   if (tabs.length === 0) return null;
 
   const current = tabs.find(t => t.key === active) || tabs[0];
+
+  // Build a lookup map from original filename to storage path (for image thumbnails)
+  const uploadByOriginal = new Map<string, UploadedFile>();
+  for (const u of uploads) {
+    uploadByOriginal.set(u.originalName, u);
+  }
 
   return (
     <div>
@@ -227,15 +235,55 @@ function IntakeOutputTabs({
         ))}
       </div>
       <div role="tabpanel">
-        <OutputGrid data={current.data!} />
+        <OutputGrid data={current.data!} uploadLookup={uploadByOriginal} />
       </div>
     </div>
   );
 }
 
-function OutputGrid({ data }: { data: Record<string, unknown> }) {
+function ObjectArraySection({ title, items, uploadLookup }: { title: string; items: Record<string, unknown>[]; uploadLookup?: Map<string, UploadedFile> }) {
+  if (!items || items.length === 0) return null;
+
+  const IMAGE_EXTS = ['.png', '.jpg', '.jpeg', '.webp', '.svg', '.gif'];
+
+  function isImageFile(name: string): boolean {
+    const lower = name.toLowerCase();
+    return IMAGE_EXTS.some(ext => lower.endsWith(ext));
+  }
+
+  return (
+    <div className="output-block">
+      <h4>{title}</h4>
+      <div className="asset-cards-grid">
+        {items.map((item, i) => {
+          const fileName = (item.file_name as string) || '';
+          const matchedUpload = uploadLookup?.get(fileName);
+          const showThumb = matchedUpload && isImageFile(fileName);
+
+          return (
+            <div key={i} className="asset-card-item">
+              {showThumb && (
+                <img src={`/uploads/${matchedUpload.path}`} alt={fileName} className="asset-card-thumb" loading="lazy" />
+              )}
+              <div className="asset-card-name">{fileName || (item.pillar as string) || '-'}</div>
+              {Object.entries(item)
+                .filter(([k]) => k !== 'file_name' && k !== 'pillar')
+                .map(([k, v]) => (
+                  <div key={k} className="asset-card-field">
+                    <span className="asset-card-key">{k.replace(/_/g, ' ')}:</span>
+                    <span className="asset-card-val">{Array.isArray(v) ? (v as string[]).join(', ') : String(v ?? '-')}</span>
+                  </div>
+                ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function OutputGrid({ data, uploadLookup }: { data: Record<string, unknown>; uploadLookup?: Map<string, UploadedFile> }) {
   const entries = Object.entries(data);
-  // show plain fields first, then array fields
   const scalars = entries.filter(([, v]) => !Array.isArray(v));
   const arrays = entries.filter(([, v]) => Array.isArray(v));
 
@@ -251,10 +299,33 @@ function OutputGrid({ data }: { data: Record<string, unknown> }) {
           ))}
         </dl>
       )}
-      {arrays.map(([k, v]) => (
-        <ArraySection key={k} title={k.replace(/_/g, ' ')} items={v as string[]} />
-      ))}
+      {arrays.map(([k, v]) => {
+        const arr = v as unknown[];
+        if (arr.length > 0 && typeof arr[0] === 'object' && arr[0] !== null) {
+          return <ObjectArraySection key={k} title={k.replace(/_/g, ' ')} items={arr as Record<string, unknown>[]} uploadLookup={uploadLookup} />;
+        }
+        return <ArraySection key={k} title={k.replace(/_/g, ' ')} items={arr.map(String)} />;
+      })}
     </div>
+  );
+}
+
+// -- Reusable agents working animation component --
+
+function AgentsWorking({ title, agents }: { title: string; agents: { label: string; desc: string }[] }) {
+  return (
+    <section className="workflow-section agents-working-section" aria-label={`${title} working`}>
+      <h2>{title}</h2>
+      <div className="agents-working-grid">
+        {agents.map((agent, i) => (
+          <div key={i} className="agent-working-card">
+            <div className={`agent-pulse${i > 0 ? ` agent-pulse--delayed-${i}` : ''}`} />
+            <div className="agent-working-title">{agent.label}</div>
+            <div className="agent-working-desc">{agent.desc}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -453,12 +524,20 @@ export default function ProjectView() {
                   <textarea rows={5} value={intake.brandGuideText} onChange={e => setProject({ ...project, intake: { ...intake, brandGuideText: e.target.value } })} onBlur={e => handleTextSave('brandGuideText', e.currentTarget.value)} placeholder="Paste brand guide text or upload a file..." />
                   <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'brandGuide')} /></div>
                   <h3>Images & Assets</h3>
-                  <label className="upload-label">Logo</label>
-                  <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg" onChange={e => handleFileUpload(e, 'logo')} /></div>
-                  <label className="upload-label">Product Images</label>
-                  <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp" onChange={e => handleFileUpload(e, 'productImages')} /></div>
-                  <label className="upload-label">Campaign Imagery</label>
-                  <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp" onChange={e => handleFileUpload(e, 'campaignImagery')} /></div>
+                  <div className="asset-columns">
+                    <div className="asset-col">
+                      <label className="upload-label">Logo</label>
+                      <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.svg" onChange={e => handleFileUpload(e, 'logo')} /></div>
+                    </div>
+                    <div className="asset-col">
+                      <label className="upload-label">Product Images</label>
+                      <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp" onChange={e => handleFileUpload(e, 'productImages')} /></div>
+                    </div>
+                    <div className="asset-col">
+                      <label className="upload-label">Campaign Imagery</label>
+                      <div className="upload-row"><input type="file" multiple accept=".png,.jpg,.jpeg,.webp" onChange={e => handleFileUpload(e, 'campaignImagery')} /></div>
+                    </div>
+                  </div>
                 </section>
               )}
 
@@ -474,11 +553,21 @@ export default function ProjectView() {
               )}
 
               {intake.humanCheckApproved && !hasOutputs && (
-                <section className="workflow-section" aria-labelledby="run-intake-heading">
-                  <h2 id="run-intake-heading">Run Intake Agents</h2>
-                  <p>Human check confirmed. Run the intake agents to process your materials.</p>
-                  <button className="btn btn-primary" onClick={handleRunIntake} disabled={running}>{running ? 'Running agents...' : 'Run Intake Agents'}</button>
-                </section>
+                <>
+                  <section className="workflow-section" aria-labelledby="run-intake-heading">
+                    <h2 id="run-intake-heading">Run Intake Agents</h2>
+                    <p>Human check confirmed. Run the intake agents to process your materials.</p>
+                    <button className="btn btn-primary" onClick={handleRunIntake} disabled={running}>{running ? 'Running agents...' : 'Run Intake Agents'}</button>
+                  </section>
+
+                  {running && (
+                    <AgentsWorking title="Agents Working" agents={[
+                      { label: 'Meeting Notes & Project Brief', desc: 'Analysing strategic inputs from meeting notes and project brief…' },
+                      { label: 'Brand Guide', desc: 'Reviewing brand positioning, tone of voice, and visual guidelines…' },
+                      { label: 'Imagery', desc: 'Reviewing uploaded logos, product images, and campaign imagery…' },
+                    ]} />
+                  )}
+                </>
               )}
 
               {hasOutputs && !isIntakeApproved && (
@@ -489,6 +578,7 @@ export default function ProjectView() {
                     brandGuideIntake={intake.brandGuideIntake}
                     assetReview={intake.assetReview}
                     intakeSummary={intake.intakeSummary}
+                    uploads={uploads}
                   />
                   <div className="button-group">
                     <button className="btn btn-primary" onClick={handleApproveIntake}>Approve Intake Summary</button>
@@ -500,136 +590,163 @@ export default function ProjectView() {
 
           {/* -- Phase 4: Manager Brief -- */}
           {isIntakeApproved && (
-            <section className="workflow-section" aria-labelledby="brief-heading">
-              <h2 id="brief-heading">Campaign Brief</h2>
-              {!hasBrief && (
-                <div>
-                  <p>Intake approved. Generate the campaign brief to proceed.</p>
-                  <button className="btn btn-primary" onClick={handleRunManager} disabled={running}>
-                    {running ? 'Generating...' : 'Generate Campaign Brief'}
-                  </button>
-                </div>
+            <>
+              {running && (
+                <AgentsWorking title="Agents Working - Campaign Brief" agents={[
+                  { label: 'Strategy Synthesis', desc: 'Synthesising intake outputs into a cohesive campaign strategy…' },
+                  { label: 'Brief Drafting', desc: 'Drafting campaign title, objectives, key messages, and channel recommendations…' },
+                  { label: 'Compliance Review', desc: 'Checking brand rules, compliance flags, and approval checklist…' },
+                ]} />
               )}
-              {hasBrief && brief && (
-                <div>
-                  {!editBrief && (
-                    <div>
-                      <RenderBriefOutput brief={intake.editableBrief ?? intake.managerBrief!} />
-                      <div className="button-group">
-                        <button className="btn btn-primary" onClick={() => setEditBrief({ ...(intake.editableBrief ?? intake.managerBrief!) })}>Edit Brief</button>
-                        {!isBriefApproved && <button className="btn btn-primary" onClick={handleApproveBrief}>Approve Campaign Brief</button>}
-                      </div>
-                    </div>
-                  )}
-                  {editBrief && (
-                    <div>
-                      <BriefEditor brief={editBrief} onChange={setEditBrief} />
-                      <div className="button-group">
-                        <button className="btn btn-primary" onClick={handleSaveBrief}>Save Edits</button>
-                        <button className="btn" onClick={() => setEditBrief(null)}>Cancel</button>
-                        {!isBriefApproved && <button className="btn btn-primary" onClick={handleApproveBrief}>Approve Campaign Brief</button>}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {isBriefApproved && (
-                <div className="locked-state">
-                  <strong>Campaign brief approved.</strong> Ready for Creator stage.
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* -- Phase 5: Creator Stage -- */}
-          {isBriefApproved && (
-            <section className="workflow-section" aria-labelledby="creator-heading">
-              <h2 id="creator-heading">Creator Stage</h2>
-              {!hasCreator && (
-                <div>
-                  <p>Brief approved. Generate the production plan to continue.</p>
-                  <button className="btn btn-primary" onClick={async () => { if (!id) return; setRunning(true); try { await runCreator(id); await fetchProject(); } catch (e) { setError((e as Error).message); } finally { setRunning(false); } }} disabled={running}>
-                    {running ? 'Generating...' : 'Run Creator'}
-                  </button>
-                </div>
-              )}
-              {hasCreator && (
-                <div className="output-block">
-                  <h3>{(intake.creatorPlan as { campaign_title?: string })?.campaign_title || 'Production Plan'}</h3>
-                  <dl className="output-grid">
-                    <dt>Strategy</dt>
-                    <dd>{(intake.creatorPlan as { production_strategy?: string })?.production_strategy || '-'}</dd>
-                  </dl>
-                  <ArraySection title="Content Pillars" items={((intake.creatorPlan as { content_pillar_breakdown?: { pillar: string }[] })?.content_pillar_breakdown || []).map((p: { pillar: string }) => p.pillar)} />
-                  <ArraySection title="Channels" items={((intake.creatorPlan as { channel_allocation?: { channel: string }[] })?.channel_allocation || []).map((c: { channel: string }) => c.channel)} />
-                  <ArraySection title="Asset Checklist" items={(intake.creatorPlan as { asset_checklist?: string[] })?.asset_checklist || []} />
-                  <ArraySection title="Team Roles" items={(intake.creatorPlan as { team_roles_needed?: string[] })?.team_roles_needed || []} />
-                  <ArraySection title="Approval Gates" items={(intake.creatorPlan as { approval_gates?: string[] })?.approval_gates || []} />
-                  {(intake.creatorPlan as { summary?: string })?.summary && <p>{(intake.creatorPlan as { summary?: string }).summary}</p>}
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* -- Phase 5: Specialist Outputs Review -- */}
-          {hasCreator && (
-            <section className="workflow-section" aria-labelledby="specialists-heading">
-              <h2 id="specialists-heading">Specialist Outputs</h2>
-              {!hasSpecialists && (
-                <div>
-                  <p>Creator plan ready. Run the specialists to produce content.</p>
-                  <button className="btn btn-primary" onClick={async () => { if (!id) return; setRunning(true); try { await runSpecialists(id); await fetchProject(); } catch (e) { setError((e as Error).message); } finally { setRunning(false); } }} disabled={running}>
-                    {running ? 'Generating...' : 'Run Specialists'}
-                  </button>
-                </div>
-              )}
-              {hasSpecialists && (
-                <div>
-                  <div className="output-block">
-                    <h3>Text Content</h3>
-                    <ArraySection title="Headlines" items={(intake.specialistOutputs as { textContent?: { headlines?: string[] } })?.textContent?.headlines || []} />
-                    <ArraySection title="Social Captions" items={(intake.specialistOutputs as { textContent?: { social_captions?: string[] } })?.textContent?.social_captions || []} />
-                    <ArraySection title="Ad Copy" items={(intake.specialistOutputs as { textContent?: { ad_copy?: string[] } })?.textContent?.ad_copy || []} />
-                    <ArraySection title="CTAs" items={(intake.specialistOutputs as { textContent?: { cta_suggestions?: string[] } })?.textContent?.cta_suggestions || []} />
+              <section className="workflow-section" aria-labelledby="brief-heading">
+                <h2 id="brief-heading">Campaign Brief</h2>
+                {!hasBrief && (
+                  <div>
+                    <p>Intake approved. Generate the campaign brief to proceed.</p>
+                    <button className="btn btn-primary" onClick={handleRunManager} disabled={running}>
+                      {running ? 'Generating...' : 'Generate Campaign Brief'}
+                    </button>
                   </div>
-
-                  <div className="output-block">
-                    <h3>Imagery Creative</h3>
-                    <dl className="output-grid">
-                      <dt>Concept</dt>
-                      <dd>{(intake.specialistOutputs as { imageryCreative?: { visual_concept?: string } })?.imageryCreative?.visual_concept || '-'}</dd>
-                    </dl>
-                    <ArraySection title="Image Prompts" items={((intake.specialistOutputs as { imageryCreative?: { image_prompts?: { format: string; prompt: string }[] } })?.imageryCreative?.image_prompts || []).map((p: { format: string; prompt: string }) => `${p.format}: ${p.prompt}`)} />
-                    {intake.conceptImages && (intake.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[]).length > 0 && (
-                      <div className="concept-images-section">
-                        <h4>Generated Concept Images</h4>
-                        <div className="concept-images-grid">
-                          {(intake.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[]).map((ci) => (
-                            <div key={ci.id} className="concept-image-card">
-                              <img src={`/${ci.imagePath}`} alt={ci.label} className="concept-image-thumb" loading="lazy" />
-                              <span className="concept-image-label">{ci.label}</span>
-                            </div>
-                          ))}
+                )}
+                {hasBrief && brief && (
+                  <div>
+                    {!editBrief && (
+                      <div>
+                        <RenderBriefOutput brief={intake.editableBrief ?? intake.managerBrief!} />
+                        <div className="button-group">
+                          <button className="btn btn-primary" onClick={() => setEditBrief({ ...(intake.editableBrief ?? intake.managerBrief!) })}>Edit Brief</button>
+                          {!isBriefApproved && <button className="btn btn-primary" onClick={handleApproveBrief}>Approve Campaign Brief</button>}
+                        </div>
+                      </div>
+                    )}
+                    {editBrief && (
+                      <div>
+                        <BriefEditor brief={editBrief} onChange={setEditBrief} />
+                        <div className="button-group">
+                          <button className="btn btn-primary" onClick={handleSaveBrief}>Save Edits</button>
+                          <button className="btn" onClick={() => setEditBrief(null)}>Cancel</button>
+                          {!isBriefApproved && <button className="btn btn-primary" onClick={handleApproveBrief}>Approve Campaign Brief</button>}
                         </div>
                       </div>
                     )}
                   </div>
-
-                  <div className="output-block">
-                    <h3>Market Research</h3>
-                    <ArraySection title="Audience Insights" items={(intake.specialistOutputs as { marketResearch?: { target_audience_insights?: string[] } })?.marketResearch?.target_audience_insights || []} />
-                    <ArraySection title="Competitors" items={(intake.specialistOutputs as { marketResearch?: { competitor_analysis?: string[] } })?.marketResearch?.competitor_analysis || []} />
-                    <ArraySection title="Risks" items={(intake.specialistOutputs as { marketResearch?: { risk_factors?: string[] } })?.marketResearch?.risk_factors || []} />
-                    <ArraySection title="Opportunities" items={(intake.specialistOutputs as { marketResearch?: { opportunities?: string[] } })?.marketResearch?.opportunities || []} />
+                )}
+                {isBriefApproved && (
+                  <div className="locked-state">
+                    <strong>Campaign brief approved.</strong> Ready for Creator stage.
                   </div>
-                </div>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* -- Phase 5: Creator Stage -- */}
+          {isBriefApproved && (
+            <>
+              {running && (
+                <AgentsWorking title="Agents Working - Creator Stage" agents={[
+                  { label: 'Production Strategy', desc: 'Analysing brief and intake to create a production plan…' },
+                  { label: 'Channel Allocation', desc: 'Determining optimal channels, content types, and posting cadence…' },
+                  { label: 'Asset Planning', desc: 'Building asset checklist, team roles, and approval gates…' },
+                ]} />
               )}
-              {hasSpecialists && (
-                <div className="locked-state">
-                  <strong>Specialist outputs generated.</strong> Ready for review and feedback.
-                </div>
+              <section className="workflow-section" aria-labelledby="creator-heading">
+                <h2 id="creator-heading">Creator Stage</h2>
+                {!hasCreator && (
+                  <div>
+                    <p>Brief approved. Generate the production plan to continue.</p>
+                    <button className="btn btn-primary" onClick={async () => { if (!id) return; setRunning(true); try { await runCreator(id); await fetchProject(); } catch (e) { setError((e as Error).message); } finally { setRunning(false); } }} disabled={running}>
+                      {running ? 'Generating...' : 'Run Creator'}
+                    </button>
+                  </div>
+                )}
+                {hasCreator && (
+                  <div className="output-block">
+                    <h3>{(intake.creatorPlan as { campaign_title?: string })?.campaign_title || 'Production Plan'}</h3>
+                    <dl className="output-grid">
+                      <dt>Strategy</dt>
+                      <dd>{(intake.creatorPlan as { production_strategy?: string })?.production_strategy || '-'}</dd>
+                    </dl>
+                    <ArraySection title="Content Pillars" items={((intake.creatorPlan as { content_pillar_breakdown?: { pillar: string }[] })?.content_pillar_breakdown || []).map((p: { pillar: string }) => p.pillar)} />
+                    <ArraySection title="Channels" items={((intake.creatorPlan as { channel_allocation?: { channel: string }[] })?.channel_allocation || []).map((c: { channel: string }) => c.channel)} />
+                    <ArraySection title="Asset Checklist" items={(intake.creatorPlan as { asset_checklist?: string[] })?.asset_checklist || []} />
+                    <ArraySection title="Team Roles" items={(intake.creatorPlan as { team_roles_needed?: string[] })?.team_roles_needed || []} />
+                    <ArraySection title="Approval Gates" items={(intake.creatorPlan as { approval_gates?: string[] })?.approval_gates || []} />
+                    {(intake.creatorPlan as { summary?: string })?.summary && <p>{(intake.creatorPlan as { summary?: string }).summary}</p>}
+                  </div>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* -- Phase 5: Specialist Outputs Review -- */}
+          {hasCreator && (
+            <>
+              {running && (
+                <AgentsWorking title="Agents Working - Specialists" agents={[
+                  { label: 'Text Content', desc: 'Generating headlines, social captions, ad copy, CTAs, and email content…' },
+                  { label: 'Imagery Creative', desc: 'Creating visual concepts, colour palettes, image prompts, and layout ideas…' },
+                  { label: 'Market Research', desc: 'Analysing audience insights, competitors, trends, risks, and opportunities…' },
+                ]} />
               )}
-            </section>
+              <section className="workflow-section" aria-labelledby="specialists-heading">
+                <h2 id="specialists-heading">Specialist Outputs</h2>
+                {!hasSpecialists && (
+                  <div>
+                    <p>Creator plan ready. Run the specialists to produce content.</p>
+                    <button className="btn btn-primary" onClick={async () => { if (!id) return; setRunning(true); try { await runSpecialists(id); await fetchProject(); } catch (e) { setError((e as Error).message); } finally { setRunning(false); } }} disabled={running}>
+                      {running ? 'Generating...' : 'Run Specialists'}
+                    </button>
+                  </div>
+                )}
+                {hasSpecialists && (
+                  <div>
+                    <div className="output-block">
+                      <h3>Text Content</h3>
+                      <ArraySection title="Headlines" items={(intake.specialistOutputs as { textContent?: { headlines?: string[] } })?.textContent?.headlines || []} />
+                      <ArraySection title="Social Captions" items={(intake.specialistOutputs as { textContent?: { social_captions?: string[] } })?.textContent?.social_captions || []} />
+                      <ArraySection title="Ad Copy" items={(intake.specialistOutputs as { textContent?: { ad_copy?: string[] } })?.textContent?.ad_copy || []} />
+                      <ArraySection title="CTAs" items={(intake.specialistOutputs as { textContent?: { cta_suggestions?: string[] } })?.textContent?.cta_suggestions || []} />
+                    </div>
+
+                    <div className="output-block">
+                      <h3>Imagery Creative</h3>
+                      <dl className="output-grid">
+                        <dt>Concept</dt>
+                        <dd>{(intake.specialistOutputs as { imageryCreative?: { visual_concept?: string } })?.imageryCreative?.visual_concept || '-'}</dd>
+                      </dl>
+                      <ArraySection title="Image Prompts" items={((intake.specialistOutputs as { imageryCreative?: { image_prompts?: { format: string; prompt: string }[] } })?.imageryCreative?.image_prompts || []).map((p: { format: string; prompt: string }) => `${p.format}: ${p.prompt}`)} />
+                      {intake.conceptImages && (intake.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[]).length > 0 && (
+                        <div className="concept-images-section">
+                          <h4>Generated Concept Images</h4>
+                          <div className="concept-images-grid">
+                            {(intake.conceptImages as { id: string; label: string; prompt: string; imagePath: string }[]).map((ci) => (
+                              <div key={ci.id} className="concept-image-card">
+                                <img src={`/${ci.imagePath}`} alt={ci.label} className="concept-image-thumb" loading="lazy" />
+                                <span className="concept-image-label">{ci.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="output-block">
+                      <h3>Market Research</h3>
+                      <ArraySection title="Audience Insights" items={(intake.specialistOutputs as { marketResearch?: { target_audience_insights?: string[] } })?.marketResearch?.target_audience_insights || []} />
+                      <ArraySection title="Competitors" items={(intake.specialistOutputs as { marketResearch?: { competitor_analysis?: string[] } })?.marketResearch?.competitor_analysis || []} />
+                      <ArraySection title="Risks" items={(intake.specialistOutputs as { marketResearch?: { risk_factors?: string[] } })?.marketResearch?.risk_factors || []} />
+                      <ArraySection title="Opportunities" items={(intake.specialistOutputs as { marketResearch?: { opportunities?: string[] } })?.marketResearch?.opportunities || []} />
+                    </div>
+                  </div>
+                )}
+                {hasSpecialists && (
+                  <div className="locked-state">
+                    <strong>Specialist outputs generated.</strong> Ready for review and feedback.
+                  </div>
+                )}
+              </section>
+            </>
           )}
 
           {/* -- Phase 6: Feedback & Revision -- */}
@@ -900,7 +1017,7 @@ function Phase7Final({
         </div>
       )}
 
-          {hasAssembly && (
+      {hasAssembly && (
         <div className="output-block">
           <h3>Final Assembly Summary</h3>
           <dl className="output-grid">
