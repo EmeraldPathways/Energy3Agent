@@ -16,8 +16,9 @@ export function isImageFile(ext: string): boolean {
 export function getFileCategory(
   originalName: string,
   fieldName?: string,
-): 'meeting_notes' | 'brand_guide' | 'logo' | 'product_image' | 'campaign_imagery' | 'other' {
+): 'meeting_notes' | 'brand_guide' | 'project_brief' | 'logo' | 'product_image' | 'campaign_imagery' | 'other' {
   if (fieldName === 'meetingNotes') return 'meeting_notes';
+  if (fieldName === 'projectBrief') return 'project_brief';
   if (fieldName === 'brandGuide') return 'brand_guide';
   if (fieldName === 'logo') return 'logo';
   if (fieldName === 'productImages') return 'product_image';

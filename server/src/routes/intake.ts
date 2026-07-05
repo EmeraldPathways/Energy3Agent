@@ -24,6 +24,7 @@ const uploadsDir = getUploadsDir();
 
 const uploadFields = [
   { name: 'meetingNotes', maxCount: 10 },
+  { name: 'projectBrief', maxCount: 10 },
   { name: 'brandGuide', maxCount: 10 },
   { name: 'logo', maxCount: 5 },
   { name: 'productImages', maxCount: 20 },
@@ -142,6 +143,8 @@ router.post('/:id/uploads', upload.fields(uploadFields), async (req: Request, re
     if (extractedText) {
       if (category === 'meeting_notes') {
         currentIntake.meetingNotesText = (currentIntake.meetingNotesText || '') + '\n\n' + extractedText;
+      } else if (category === 'project_brief') {
+        currentIntake.projectBriefText = (currentIntake.projectBriefText || '') + '\n\n' + extractedText;
       } else if (category === 'brand_guide') {
         currentIntake.brandGuideText = (currentIntake.brandGuideText || '') + '\n\n' + extractedText;
       } else if (category === 'other') {
@@ -210,14 +213,20 @@ router.post('/:id/agents/run-intake', async (req: Request, res: Response) => {
 
   const intake = parseIntake(row.intake);
 
-  if (!intake.meetingNotesText?.trim() && !intake.brandGuideText?.trim()) {
-    res.status(400).json({ error: 'No source data to process. Upload meeting notes or brand guide text before running intake agents.' });
+  if (!intake.meetingNotesText?.trim() && !intake.projectBriefText?.trim() && !intake.brandGuideText?.trim()) {
+    res.status(400).json({ error: 'No source data to process. Upload meeting notes, project brief, or brand guide text before running intake agents.' });
     return;
   }
 
   try {
+    // Combine meeting notes + project brief for the strategic intake review
+    const strategicInput = [
+      intake.meetingNotesText?.trim() || '',
+      intake.projectBriefText?.trim() || '',
+    ].filter(Boolean).join('\n\n---\n\n');
+
     const [meetingNotesIntake, brandGuideIntake] = await Promise.all([
-      runMeetingNotesIntake(intake.meetingNotesText || 'No meeting notes provided.'),
+      runMeetingNotesIntake(strategicInput || 'No meeting notes or project brief provided.'),
       runBrandGuideIntake(intake.brandGuideText || 'No brand guide provided.'),
     ]);
 

@@ -31,7 +31,7 @@ export const UploadedFileSchema = z.object({
   mimeType: z.string(),
   size: z.number(),
   path: z.string(),
-  category: z.enum(['meeting_notes', 'brand_guide', 'logo', 'product_image', 'campaign_imagery', 'other']),
+  category: z.enum(['meeting_notes', 'project_brief', 'brand_guide', 'logo', 'product_image', 'campaign_imagery', 'other']),
   createdAt: z.string(),
 });
 export type UploadedFile = z.infer<typeof UploadedFileSchema>;
@@ -222,6 +222,7 @@ export type SpecialistOutputs = z.infer<typeof SpecialistOutputsSchema>;
 // ── Full Intake/Brief/Creator/Specialists State ──
 export const IntakeDataSchema = z.object({
   meetingNotesText: z.string().default(''),
+  projectBriefText: z.string().default(''),
   brandGuideText: z.string().default(''),
   projectNotes: z.string().default(''),
   stage: IntakeStage.default('setup'),

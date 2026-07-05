@@ -446,6 +446,9 @@ export default function ProjectView() {
                   <h3>Meeting Notes</h3>
                   <textarea rows={5} value={intake.meetingNotesText} onChange={e => setProject({ ...project, intake: { ...intake, meetingNotesText: e.target.value } })} onBlur={e => handleTextSave('meetingNotesText', e.currentTarget.value)} placeholder="Paste meeting notes or upload a file..." />
                   <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'meetingNotes')} /></div>
+                  <h3>Project Brief</h3>
+                  <textarea rows={5} value={intake.projectBriefText ?? ''} onChange={e => setProject({ ...project, intake: { ...intake, projectBriefText: e.target.value } })} onBlur={e => handleTextSave('projectBriefText', e.currentTarget.value)} placeholder="Paste project brief or upload a file..." />
+                  <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'projectBrief')} /></div>
                   <h3>Brand Guide</h3>
                   <textarea rows={5} value={intake.brandGuideText} onChange={e => setProject({ ...project, intake: { ...intake, brandGuideText: e.target.value } })} onBlur={e => handleTextSave('brandGuideText', e.currentTarget.value)} placeholder="Paste brand guide text or upload a file..." />
                   <div className="upload-row"><input type="file" multiple accept=".txt,.pdf,.docx" onChange={e => handleFileUpload(e, 'brandGuide')} /></div>

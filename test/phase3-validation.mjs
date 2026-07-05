@@ -92,8 +92,8 @@ async function main() {
     assert(create.status === 201, 'Create project returns 201');
     projectId = create.body.data.id;
 
-    // 2. Upload file with named field
-    console.log('\n=== Upload File ===');
+    // 2. Upload meeting notes file
+    console.log('\n=== Upload Meeting Notes ===');
     const FormData = (await import('form-data')).default;
     const fd = new FormData();
     fd.append('meetingNotes', await fs.readFile(filePath), { filename: 'test-notes.txt', contentType: 'text/plain' });
@@ -102,6 +102,17 @@ async function main() {
     assert(uploadRes.body.data.length > 0, 'Upload returns file record');
     assert(uploadRes.body.data[0].category === 'meeting_notes', 'File categorized as meeting_notes');
     uploadId = uploadRes.body.data[0].id;
+
+    // 2b. Upload project brief file
+    console.log('\n=== Upload Project Brief ===');
+    const briefFilePath = path.join(tmpDir, `test-brief-${Date.now()}.txt`);
+    await fs.writeFile(briefFilePath, 'Project Brief: Eco-Friendly Product Launch\n\nTarget market: 18-35 age group. Key USP: Carbon-neutral packaging. Competitors: GreenPak, EcoBox. Budget: $50k. Timeline: 8 weeks.');
+    const fd2 = new FormData();
+    fd2.append('projectBrief', await fs.readFile(briefFilePath), { filename: 'test-brief.txt', contentType: 'text/plain' });
+    const briefUploadRes = await uploadFiles(projectId, fd2);
+    assert(briefUploadRes.status === 201, 'Project brief upload returns 201');
+    assert(briefUploadRes.body.data.length > 0, 'Project brief upload returns file record');
+    assert(briefUploadRes.body.data[0].category === 'project_brief', 'File categorized as project_brief');
 
     // 3. Verify uploads list
     console.log('\n=== List Uploads ===');

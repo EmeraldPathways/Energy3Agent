@@ -1,41 +1,48 @@
 # Cline Result
 
-## Verdict (Phase 8 Fix)
+## Verdict (Review Pass)
 
-Phase 8 Codex review corrections PASS. All three findings resolved. Build passes.
+Review-only audit complete. No code changes made. Report file created.
 
-## Files Changed (Phase 8 Fix)
+## Files Changed
 
 | File | Change |
 |------|--------|
-| `PROJECT.md` | Fixed stale summary (claimed only Phases 1-4), updated "Latest Validation" and "Current Priorities" to reflect completed state |
-| `README.md` | Replaced box-drawing characters with plain ASCII, replaced Unicode arrows with text |
-| `client/src/pages/ProjectView.tsx` | Replaced HTML entity back-arrow with plain "Back to Dashboard" |
-| `.agent-handoff/validation-log.md` | Updated |
-| `.agent-handoff/cline-result.md` | Updated |
+| `.agent-handoff/review-report.md` | Created — full review report |
+| `.agent-handoff/cline-result.md` | Updated with review summary |
 
-## Test Results
+## Commands Run
 
-**`npm.cmd run build`** — PASS
+| Command | Result |
+|---------|--------|
+| `npm.cmd run build` | PASS |
+| `npm.cmd run validate:crud` | PASS (11/11) |
+| `node test/phase3-validation.mjs` | PASS (23/23) |
+| `node test/phase5-validation.mjs` | PASS (20/20) |
+| `node test/phase6-validation.mjs` | PASS (28/28) |
+| `node test/phase7-validation.mjs` | PASS (34/34) |
+| `npm.cmd run validate:agents` | PASS (191/192 — 1 gate enforcement FAIL) |
 
----
+## Findings by Severity
 
-## Previous: Phase 8
+- **Critical**: 2
+  1. `run-intake` has no gate enforcement — runs on empty projects, wastes Gemini credits
+  2. `specialistsStage === 'completed'` referenced in frontend but never set by backend — breaks workflow rail UI after specialists phase
+- **High**: 2
+  1. `api-surface.md` stale — missing Phase 6/7 routes, lists non-existent route
+  2. Unused `campaign-manager-agent.ts` prompt with mismatched contract if ever wired
+- **Medium**: 4
+  1. Duplicated `ProjectRow`/`parseIntake`/`safeParseJson` across 5+ files
+  2. React state staleness bug in `handleTextSave` (closure captures stale state)
+  3. No error code distinction for Gemini vs validation failures (always 500)
+  4. `phase4-validation.mjs` lacks Gemini guard — false failures without API key
+- **Low**: 3
+  1. 5 unused prompt modules compiled but never wired
+  2. `.ai-codex/index.md` stale (says Phases 1-4, actual is 1-8)
+  3. README missing `phase4-validation.mjs` command
 
-Phase 8 hardening PASS. Documentation complete, UX polished, build and CRUD validation pass. All 8 phases now fully implemented and documented.
+## Biggest Confirmed Issues
 
-### Files Changed (Phase 8)
+1. **Frontend workflow rail breaks after specialists phase** — `specialistsStage` only has values `pending`/`generated`/`review`, but frontend checks for `'completed'` which is never set. Feedback and export stages become permanently unreachable in the UI.
 
-`README.md`, `phases.md`, `PROJECT.md`, `client/src/pages/ProjectView.tsx`, handoff docs.
-
-### Remaining Limitations
-
-- `.env` file missing `GEMINI_API_KEY`
-- Auth not implemented
-- No image generation execution
-
----
-
-## Previous: Phase 7
-
-Phase 7 PASS. Final assembly, final approval, JSON/Markdown/HTML export. 34/34 validation.
+2. **`run-intake` can be called on brand new empty projects** — the test `agents-validation.mjs` explicitly fails on this gate check. The route doesn't require `humanCheckApproved` or any source data before calling Gemini 4 times.

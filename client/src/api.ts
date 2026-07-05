@@ -44,6 +44,7 @@ export interface ManagerBrief {
 
 export interface IntakeData {
   meetingNotesText: string;
+  projectBriefText: string;
   brandGuideText: string;
   projectNotes: string;
   stage: string;
